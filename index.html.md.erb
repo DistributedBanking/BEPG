@@ -1,0 +1,1151 @@
+---
+title: BitExpress 接口文档
+
+language_tabs: # must be one of https://git.io/vQNgJ
+  - shell
+  - php
+  - go
+  - python
+  - more
+
+
+toc_footers:
+  - BitExpress 支付网关
+  - <a href='index_en.html'>English</a> | <a href='index.html'>简体中文</a> 
+  - <a href='https://github.com/lord/slate'>Documentation Powered by Slate</a>
+
+search: true
+---
+
+# 简介
+
+BitExpress是一家仅以数字货币作为流通货币的全球性支付公司，BitExpress为广大商户提供最简单的收款API，让想要收取数字货币的商户可以立即开始收取数字货币。
+BitExpress与各国的数字货币交易所、OTC市场、锚定币发行商紧密合作，为还未拥有数字货币的用户提供法币直接支付——商户数字货币结算的完整解决方案，为收取数字货币商户拓展客户带来便利。
+以下为API接口文档，方便商户系统与BitExpress支付系统进行对接，传输交易参数、接受交易结果回调、对账等。
+
+# 商户接入流程
+
+要成为BitExpress商户，只需要下载<a href='https://www.bitexpress.io' >BitExpress客户端</a>根据创建秘钥或者导入秘钥流程创建BitExpress账户，进入APP主界面即可成为BitExpress收单商户。
+BitExpress商户无需进行认证，但是BitExpress推荐商户进行实名认证（BitExpress使用DCC提供的区块链认证服务系统，将不会保留实名认证的信息，用户认证信息会保留在app本地，BitExpress只会在需要时候，通过用户提交的参数和区块链记录的信息进行比较验证），以便账号、密码、私钥丢失时方便找回账号。
+进入BitExpress APP主界面后，进入”服务“中找到”商户收单服务“模块，即可查看商户收单所需要的所有信息。
+商户收单服务提供独立的商户控制台，便于商户查看交易情况，下载对账文件，查看数据分析等，商户可以访问<a href='https://www.bitexpress.io/#/merchant/login' >BitExpress商户控台</a>，通过APP扫码登陆控制台。
+
+<aside class="notice">
+BitExpress已经完全放弃用户名和密码的认证体系，采用数字钱包地址作为用户ID、使用PKI的身份认证体系进行认证，因此请安装BitExpress的用户创建完成数字钱包地址后进行备份，以免因为数字钱包秘钥丢失导致的数字资产丢失。
+</aside>
+
+# 商户接入基本信息
+
+商户接入需要如下基本信息：
+
+参数 | 说明 
+----------------- | ------- 
+uid | 接入收款人id，可以从APP或者商户控台我的中找到
+签名秘钥 | 在APP中开通收单服务时生成，公钥会自动上传到服务端，私钥请从手机中复制获得，BitExpress不保存用户的私钥，如果丢失请使用更新功能更新秘钥
+平台公钥 | 在APP中获取，用于接受订单状态通知的签名验证，商户仅可以获取公钥，私钥在BitExpress系统内保存。
+接口URL | https://www.bitexpress.io/api/gateway.do
+HTTP参数 | POST , http header: Content-Type: application/json , Accept: application/json, application/*+json
+字符集 | UTF-8
+时间格式 | ISO8601 , `yyyy-MM-dd'T'HH:mm:ss.SSSZ`
+
+#数据封装形式
+
+<%= image_tag "images/letterstr.png" %>
+
+## 外层信封
+
+外层信封的作用是将实际需要加护的内容转换成字符串再对其做签名，当信件接收方通过签名后再自行解码内容。整个机制的目的在于将加验签功能和业务功能隔离。
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+uid | 用户id | Number(20) | 用户uid | 非空 | 100
+content | 内容 | String(100,000) | 字符串内容 | 非空 | Aaa
+signature | 签名 | String(2000) | 签名hex格式 | 非空 | content字段内容的签名，例：abc
+signatureVersion | 接口版本 | Number(5) | 签名版本 | 非空 | 1.0
+
+`参数顺序不需要严格按照以上字段顺序排列`
+
+## content内容封装
+
+Content分为请求内容和响应内容
+
+### 请求内容格式
+
+参数 | 参数名称 | 类型（长度范围） | 是否可空 
+-------- | -------- | ---------------- | ------- 
+header | 请求头 | Json对象 | 非空 
+body | 请求体 | Json对象 | 可空 
+
+* 请求头格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+requestTime | 请求时间 | date | 请求时间,时间格式:iso8601 | 非空 | 2019-04-23T19:56:59.678+0800
+service | 服务接口 | String(50) | 服务名称 | 非空 | acquireOrder
+serviceVersion | 服务接口版本 | BigDecimal | 服务版本 | 非空 | 1.0
+preserved | 保留字段 | String(200) | 请求和响应相同 | 可空 | 
+
+* 请求体格式
+
+请求体的格式由业务决定。可以是简单数据类型，比如整型，字符型等，也可以是复杂对象。
+见业务接口章节
+
+### 请求体样例
+`{"header":{"requestTime":"2019-04-23T19:56:59.444+0800","service":"plus","serviceVersion":1.0},"body":{"a":1,"b":2,"time":"2019-04-23T19:56:59.442+0800"}}`
+
+### 响应内容格式
+
+参数 | 参数名称 | 类型（长度范围） | 是否可空 
+-------- | -------- | ---------------- | ------- 
+header | 请求头 | Json对象 | 非空 
+body | 请求体 | Json对象 | 可空 
+
+* 响应头格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+requestTime | 请求时间 | date | 请求时间,时间格式:iso8601 | 非空 | 2019-04-23T19:56:59.678+0800
+responseCode | 响应代码 | String(20) | 代码列表见附录 | 非空 | SUCCESS
+errorMessage | 错误信息 | String(2000) | 当有错误时，描述错误内容 | 可空 | 
+preserved | 保留字段 | String(200) | 请求和响应相同 | 可空 | 
+
+* 响应体格式
+
+响应体的格式由业务决定。可以是简单数据类型，比如整型，字符型等，也可以是复杂对象。
+
+## 签名机制
+
+**签名算法 SHA256withRSA**
+
+* 公私钥生成
+
+```shell
+# openssl genrsa -out test_sign_private_key.pem 1024
+# openssl pkcs8 -topk8 -inform PEM -in test_sign_private_key.pem -outform PEM -out test_sign_pri.pem -nocrypt
+# openssl rsa -in  test_sign_private_key.pem -pubout -out test_sign_pub.pem
+
+test_sign_pri.pem是私钥文件
+test_sign_pub.pem是公钥文件
+```
+
+* pem格式私钥样例
+
+`
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEAvrHwCs+XlfvG2CAZkgJoFJ0XTHmKoCjpZlW8TjmgXmFRKPw8PyrcVvXJM1H2IAw6IyxrbfSy03dCGkTRU7RapCe4qkkIpnKafb/wXD4UprDOQINVgya5GaHuD7Y3T7jV3I4hnlfs37AQ8oB4L44OI17C1sM75O6fqIlOPkXkFthu/KoAbs7pm40jDIjMrdfUgKEMhq/TJ3Nk/4JXQpOoyD9jk14XnLLLs6OPonzjEcuOefSSRrsJeGalraadWuBIZmFkGVnaUndjOI55Jmrjq/7JdF2zHGnRtmOgYlRBDLZqep8VDjguH5TcrTzAng98q93E22vtJk1yO4F7DeiTQwIDAQABAoIBAEoUjwdsINvDrTodskFODQfhBQGQ/+D7M7ytFtOewGWZ0bEl1/PEH0frAMgekYpepaEvauaS1nufCz9wN4+Yc1PtGGiSqbkbsVejnmj/Nv+QlPdr7ebevq6uAPD6nR8r02z0jCvaxWsal2LVtJroySZFdFSBEL39U2niOVKozRRwQJXmD8frmcAwwLLSfM0rnhMmSdSR1KWW3UyvFagc0mtmEGqxinQnqLbhc6ZxVZjT2DYcs8BlnGfjA8kYYhawgUKsCxI7MNoX4xAAXo1gxKH1xDiaht+3zRFNKHxIzAqzY6IgR7NUlX0Y4HOOZgBaogQ95sbvXwit+wHbG8gqMEUCgYEA9HF5z9siAtSpF4KMjVOx3iE8MM/7MBRgWFZQOWrfRNSLwsl3GPhSujrojJocKa4xV8ipG1hJ6ZBCYljPX+y8XikCVQfNT/aGsbrIVhV+QG0l8dCtlpn184onLqS4rxaaX/4z7XQr17W71Z5n8GtEAxXkpO3UfFSGWHa/HJxMWXcCgYEAx7XxAEwMaK/ekjZenG+6P6/1HsXtc5/4+4V4iiey6sJ2Kui98/Yl3sIEHNxLyfQPkTwjPXwyPdItSSrWrM5G6FUeXcr5WhD2GK8LiY5eoNCbp5tqQND/Nvv0MJvYNa9Yy8qxrGeNn7lYbSD47Qd0o8DmSUBjtkzePu3eZC67x5UCgYEAw3tECN+bcVwT5YM3V4YJBjTZ58dLf4WsDrjn6yL2bhrzsdBfeA6OSfP2KQrNXt+5AhSsd/vBEBGXpQKUxIeTlFGDVfCpVjs2OEfBEmaZ0nf3EkzppTh2ok5nSzvbndmblwy5BjoTHaxuDEVjpbaCa11Evkib1tnZnkFIUF8GB70CgYEAh2aKhCoLS7rZSwZDtQpnGyDgLsIA0KDIPTdr1zc9Lb80QLlVeB8N4+5kvXB6jezD1TMRrXET2ygxfebmb3jXSFPVZ7/iuTbAs1GSn+t/qsZkkgljy5gnQI8oKwCuYQ+GQ30kYwA+W+lc03hEbOfeI9v4Bff64rFRCRda7U9mDtUCgYBu6I2MBgVgt/DlbWvogbf01qfsFY3BRR6S7CuLsWkbwrTj3KoOpcoJIXsQjynetV2gpjxm1X18SQqcgF+7VNZi2ghdpYZZb+6fu7fa2lY/p2vTPSVjLUNlLEO44LkRCRLcX6E/SAfxDVLezdDEtTSArVIpNNDRWifgB6zc8CFE4Q==
+-----END RSA PRIVATE KEY-----
+`
+
+* pem格式样本公钥
+
+`
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvrHwCs+XlfvG2CAZkgJoFJ0XTHmKoCjpZlW8TjmgXmFRKPw8PyrcVvXJM1H2IAw6IyxrbfSy03dCGkTRU7RapCe4qkkIpnKafb/wXD4UprDOQINVgya5GaHuD7Y3T7jV3I4hnlfs37AQ8oB4L44OI17C1sM75O6fqIlOPkXkFthu/KoAbs7pm40jDIjMrdfUgKEMhq/TJ3Nk/4JXQpOoyD9jk14XnLLLs6OPonzjEcuOefSSRrsJeGalraadWuBIZmFkGVnaUndjOI55Jmrjq/7JdF2zHGnRtmOgYlRBDLZqep8VDjguH5TcrTzAng98q93E22vtJk1yO4F7DeiTQwIDAQAB
+-----END PUBLIC KEY-----
+`
+<aside class="notice">
+以上样例可能存在不必要的空格，请在使用时去除不必要的空格。
+如您使用字符串作为秘钥的调用方式，无需保留类似`-----BEGIN RSA PRIVATE KEY-----`的内容，
+如果您保存为pem文件，请将类似`-----BEGIN RSA PRIVATE KEY-----`的内容保持在独立的行中。
+</aside>
+
+## 被签名的内容(即请求体样例)
+
+```json
+{"header":{"requestTime":"2019-04-23T19:56:59.444+0800","service":"plus",
+"serviceVersion":1.0},"body":{"a":1,"b":2,"time":"2019-04-23T19:56:59.442+0800"}}
+```
+
+<aside class="notice">
+请注意，json的格式化内容比如回车缩进等也将被一并签名。
+</aside>
+
+## 签名结果(HEX格式)
+
+```json
+29d1e1e6924986180482f0ec8463703d0a91a87d39f2b26c64509aedc59ce3f79d00a1e10e5b4cef
+999c26541e2bfe696ed3d1457f338a7d1382ae5fc6ee82f7a1398d60aec83b22b2d42a9ac18351cf
+ec459a83053f3033932d68fc86d24701180da1bb9582f0209a37625a9c528b83bb69a6b2f3e09e82
+e917f8b606d39356bb40446a121520f98c76f1b0bbebedfefa3624fa90762bb282d497e55b20da69
+8edec209c03b9ae2c7d2ac50412d1c682864e7659cf49fd7bc35d1725e1d6c805170d080f5b256f9
+b6fbfea51e06e24496d1c5b411a7eec467ff20d2ffc020f8939a0f379bb03844dafa2bb05d611ff6
+af53d225bead027c0aa26b78711ff02a
+```
+
+## 封装信封
+
+将上述结果封装到请求信封中序列化成json，结果如下：
+
+```json
+{"uid":459,"signature":"29d1e1e6924986180482f0ec8463703d0a91a87d39f2b
+26c64509aedc59ce3f79d00a1e10e5b4cef999c26541e2bfe696ed3d1457f338a7d13
+82ae5fc6ee82f7a1398d60aec83b22b2d42a9ac18351cfec459a83053f3033932d68f
+c86d24701180da1bb9582f0209a37625a9c528b83bb69a6b2f3e09e82e917f8b606d3
+9356bb40446a121520f98c76f1b0bbebedfefa3624fa90762bb282d497e55b20da698
+edec209c03b9ae2c7d2ac50412d1c682864e7659cf49fd7bc35d1725e1d6c805170d0
+80f5b256f9b6fbfea51e06e24496d1c5b411a7eec467ff20d2ffc020f8939a0f379bb
+03844dafa2bb05d611ff6af53d225bead027c0aa26b78711ff02a","signatureVers
+ion":1.0,"content":"{\"header\":{\"requestTime\":\"2019-04-23T19:56:5
+9.444+0800\",\"service\":\"plus\",\"serviceVersion\":1.0},\"body\":
+{\"a\":1,\"b\":2,\"time\":\"2019-04-23T19:56:59.442+0800\"}}"}
+```
+
+# 提交请求
+
+```shell
+请求：
+curl -d 
+{
+  "uid": 459,
+  "signature": "1747494d5c92e8bdc2e5e21427aff64f988b94821ecf08ee68cd3a45eb0300fa229e1c008af94e91ce4cf
+  54251cf4554a5de2fc981ba6d69ebff47471af9c67f3a9e4116aa30ae40919bc723bf6d092be31007a319f90262e8756cae
+  6cb9485607e08fccf6d7aabcc90bc0e7d3a7ce6ef4cefeb9cc3ffcee29668cf97a3ae3e321b1ea6a103a0437e27c44e48a4
+  13c157899c22014b2820a495c5ce7e54563d135499c12fe505d647434ba5e3d79f6fa200d2fd7784d43f635a7a72ffb0359
+  f9c2c7648a25c4e08bcbbb1b30979e54b250a488ac2230e2909dad4aa341bdaee4adab92ed330ea4ad0d92eaf1aaaea0786
+  9bf46640e698b586fea683654d1e49d",
+  "signatureVersion": 1.0,
+  "content": "{\"header\":{\"requestTime\":\"2019-04-23T19:40:03.505+0800\",\"service\":\"plus\",
+  \"serviceVersion\":1.0},\"body\":{\"a\":1,\"b\":2,\"time\":\"2019-04-23T19:40:03.502+0800\"}}"
+} 
+https://www.bitexpress.io/api/gateway.do
+```
+
+```go
+package main
+
+import (
+  "crypto"
+  "crypto/rand"
+  "crypto/rsa"
+  "crypto/sha256"
+  "crypto/x509"
+  "encoding/hex"
+  "encoding/pem"
+  "io/ioutil"
+
+  "errors"
+  "fmt"
+)
+
+var (
+  // 初始化key
+  privateKey = loadKey("./bitexpress.privkey.pem")
+)
+
+func main() {
+  // 请求体
+  var signString = `{"header":{"requestTime":"2019-04-23T19:56:59.444+0800",
+  "service":"plus","serviceVersion":1.0},"body":
+  {"a":1,"b":2,"time":"2019-04-23T19:56:59.442+0800"}}`
+
+  encryptedString, err := RsaEncrypt([]byte(signString))
+  if err != nil {
+    panic(err)
+  }
+  signature := hex.EncodeToString(encryptedString)
+  fmt.Println(signature)
+}
+
+// 加密
+func RsaEncrypt(origData []byte) ([]byte, error) {
+  priv, err := x509.ParsePKCS1PrivateKey(privateKey.Bytes)
+  if err != nil {
+    fmt.Println("parse priv key error")
+    return nil, err
+  }
+  hashed := sha256.New()
+  hashed.Write(origData)
+
+  return rsa.SignPKCS1v15(rand.Reader, priv, crypto.SHA256, hashed.Sum(nil))
+}
+
+func loadKey(keyPath string) *pem.Block {
+  pemContent, err := ioutil.ReadFile(keyPath)
+  if err != nil {
+    panic(err)
+  }
+
+  return initKey(pemContent)
+}
+
+func initKey(pemContent []byte) *pem.Block {
+  block, _ := pem.Decode(pemContent)
+
+  if block == nil {
+    panic(errors.New("failed to parse PEM block containing the key"))
+  }
+
+  return block
+}
+
+```
+
+
+ ```php
+    <?php
+        $privateKey = <<<EOF
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEAvrHwCs+XlfvG2CAZkgJoFJ0XTHmKoCjpZlW8TjmgXmFRKPw8
+PyrcVvXJM1H2IAw6IyxrbfSy03dCGkTRU7RapCe4qkkIpnKafb/wXD4UprDOQINV
+gya5GaHuD7Y3T7jV3I4hnlfs37AQ8oB4L44OI17C1sM75O6fqIlOPkXkFthu/KoA
+bs7pm40jDIjMrdfUgKEMhq/TJ3Nk/4JXQpOoyD9jk14XnLLLs6OPonzjEcuOefSS
+RrsJeGalraadWuBIZmFkGVnaUndjOI55Jmrjq/7JdF2zHGnRtmOgYlRBDLZqep8V
+DjguH5TcrTzAng98q93E22vtJk1yO4F7DeiTQwIDAQABAoIBAEoUjwdsINvDrTod
+skFODQfhBQGQ/+D7M7ytFtOewGWZ0bEl1/PEH0frAMgekYpepaEvauaS1nufCz9w
+N4+Yc1PtGGiSqbkbsVejnmj/Nv+QlPdr7ebevq6uAPD6nR8r02z0jCvaxWsal2LV
+tJroySZFdFSBEL39U2niOVKozRRwQJXmD8frmcAwwLLSfM0rnhMmSdSR1KWW3Uyv
+Fagc0mtmEGqxinQnqLbhc6ZxVZjT2DYcs8BlnGfjA8kYYhawgUKsCxI7MNoX4xAA
+Xo1gxKH1xDiaht+3zRFNKHxIzAqzY6IgR7NUlX0Y4HOOZgBaogQ95sbvXwit+wHb
+G8gqMEUCgYEA9HF5z9siAtSpF4KMjVOx3iE8MM/7MBRgWFZQOWrfRNSLwsl3GPhS
+ujrojJocKa4xV8ipG1hJ6ZBCYljPX+y8XikCVQfNT/aGsbrIVhV+QG0l8dCtlpn1
+84onLqS4rxaaX/4z7XQr17W71Z5n8GtEAxXkpO3UfFSGWHa/HJxMWXcCgYEAx7Xx
+AEwMaK/ekjZenG+6P6/1HsXtc5/4+4V4iiey6sJ2Kui98/Yl3sIEHNxLyfQPkTwj
+PXwyPdItSSrWrM5G6FUeXcr5WhD2GK8LiY5eoNCbp5tqQND/Nvv0MJvYNa9Yy8qx
+rGeNn7lYbSD47Qd0o8DmSUBjtkzePu3eZC67x5UCgYEAw3tECN+bcVwT5YM3V4YJ
+BjTZ58dLf4WsDrjn6yL2bhrzsdBfeA6OSfP2KQrNXt+5AhSsd/vBEBGXpQKUxIeT
+lFGDVfCpVjs2OEfBEmaZ0nf3EkzppTh2ok5nSzvbndmblwy5BjoTHaxuDEVjpbaC
+a11Evkib1tnZnkFIUF8GB70CgYEAh2aKhCoLS7rZSwZDtQpnGyDgLsIA0KDIPTdr
+1zc9Lb80QLlVeB8N4+5kvXB6jezD1TMRrXET2ygxfebmb3jXSFPVZ7/iuTbAs1GS
+n+t/qsZkkgljy5gnQI8oKwCuYQ+GQ30kYwA+W+lc03hEbOfeI9v4Bff64rFRCRda
+7U9mDtUCgYBu6I2MBgVgt/DlbWvogbf01qfsFY3BRR6S7CuLsWkbwrTj3KoOpcoJ
+IXsQjynetV2gpjxm1X18SQqcgF+7VNZi2ghdpYZZb+6fu7fa2lY/p2vTPSVjLUNl
+LEO44LkRCRLcX6E/SAfxDVLezdDEtTSArVIpNNDRWifgB6zc8CFE4Q==
+-----END RSA PRIVATE KEY-----
+EOF;
+
+$publicKey = <<<EOF
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvrHwCs+XlfvG2CAZkgJo
+FJ0XTHmKoCjpZlW8TjmgXmFRKPw8PyrcVvXJM1H2IAw6IyxrbfSy03dCGkTRU7Ra
+pCe4qkkIpnKafb/wXD4UprDOQINVgya5GaHuD7Y3T7jV3I4hnlfs37AQ8oB4L44O
+I17C1sM75O6fqIlOPkXkFthu/KoAbs7pm40jDIjMrdfUgKEMhq/TJ3Nk/4JXQpOo
+yD9jk14XnLLLs6OPonzjEcuOefSSRrsJeGalraadWuBIZmFkGVnaUndjOI55Jmrj
+q/7JdF2zHGnRtmOgYlRBDLZqep8VDjguH5TcrTzAng98q93E22vtJk1yO4F7DeiT
+QwIDAQAB
+-----END PUBLIC KEY-----
+EOF;
+
+$requestParams = [
+    "header" => [
+        "requestTime" => "2019-04-23T19:56:59.444+0800",
+        "service" => "plus",
+        "serviceVersion" => 1.0
+    ],
+    "body" => [
+        "a" => 1,
+        "b" => 2,
+        "time" => "2019-04-23T19:56:59.442+0800"
+    ]
+];
+$requestJson = json_encode($requestParams, JSON_PRESERVE_ZERO_FRACTION);
+
+// https://www.php.net/manual/en/function.openssl-sign.php
+openssl_sign($requestJson, $binarySignature, $privateKey, "sha256WithRSAEncryption");
+
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, 'https://www.bitexpress.io/api/gateway.do');
+curl_setopt($ch, CURLOPT_HEADER, 0);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+curl_setopt($ch, CURLOPT_POST, 1);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+    "uid" => 459,
+    "signature" => bin2hex($binarySignature),
+    "signatureVersion" => 1.0,
+    "content" => $requestJson
+], JSON_PRESERVE_ZERO_FRACTION));
+
+$data = curl_exec($ch);
+curl_close($ch);
+
+var_dump($data);exit;
+    ?>
+```
+
+```python
+#
+import rsa
+import base64
+import binascii
+
+
+#该测试用例基于python3.6.1
+#默认的python环境没有rsa模块需要自主安装 pip install rsa
+#签名的结果是字符型字节流需要转换 binascii.hexlify(signContent)
+
+
+message = '{"header":{"requestTime":"2019-04-23T19:56:59.444+0800",
+"service":"plus","serviceVersion":1.0},"body":{"a":1,"b":2,"time":"2019-04-23T19:56:59.442+0800"}}'
+
+pri = '-----BEGIN RSA PRIVATE KEY-----\n'\
+'MIIEpAIBAAKCAQEAvrHwCs+XlfvG2CAZkgJoFJ0XTHmKoCjpZlW8TjmgXmFRKPw8\n'\
+'PyrcVvXJM1H2IAw6IyxrbfSy03dCGkTRU7RapCe4qkkIpnKafb/wXD4UprDOQINV\n'\
+'gya5GaHuD7Y3T7jV3I4hnlfs37AQ8oB4L44OI17C1sM75O6fqIlOPkXkFthu/KoA\n'\
+'bs7pm40jDIjMrdfUgKEMhq/TJ3Nk/4JXQpOoyD9jk14XnLLLs6OPonzjEcuOefSS\n'\
+'RrsJeGalraadWuBIZmFkGVnaUndjOI55Jmrjq/7JdF2zHGnRtmOgYlRBDLZqep8V\n'\
+'DjguH5TcrTzAng98q93E22vtJk1yO4F7DeiTQwIDAQABAoIBAEoUjwdsINvDrTod\n'\
+'skFODQfhBQGQ/+D7M7ytFtOewGWZ0bEl1/PEH0frAMgekYpepaEvauaS1nufCz9w\n'\
+'N4+Yc1PtGGiSqbkbsVejnmj/Nv+QlPdr7ebevq6uAPD6nR8r02z0jCvaxWsal2LV\n'\
+'tJroySZFdFSBEL39U2niOVKozRRwQJXmD8frmcAwwLLSfM0rnhMmSdSR1KWW3Uyv\n'\
+'Fagc0mtmEGqxinQnqLbhc6ZxVZjT2DYcs8BlnGfjA8kYYhawgUKsCxI7MNoX4xAA\n'\
+'Xo1gxKH1xDiaht+3zRFNKHxIzAqzY6IgR7NUlX0Y4HOOZgBaogQ95sbvXwit+wHb\n'\
+'G8gqMEUCgYEA9HF5z9siAtSpF4KMjVOx3iE8MM/7MBRgWFZQOWrfRNSLwsl3GPhS\n'\
+'ujrojJocKa4xV8ipG1hJ6ZBCYljPX+y8XikCVQfNT/aGsbrIVhV+QG0l8dCtlpn1\n'\
+'84onLqS4rxaaX/4z7XQr17W71Z5n8GtEAxXkpO3UfFSGWHa/HJxMWXcCgYEAx7Xx\n'\
+'AEwMaK/ekjZenG+6P6/1HsXtc5/4+4V4iiey6sJ2Kui98/Yl3sIEHNxLyfQPkTwj\n'\
+'PXwyPdItSSrWrM5G6FUeXcr5WhD2GK8LiY5eoNCbp5tqQND/Nvv0MJvYNa9Yy8qx\n'\
+'rGeNn7lYbSD47Qd0o8DmSUBjtkzePu3eZC67x5UCgYEAw3tECN+bcVwT5YM3V4YJ\n'\
+'BjTZ58dLf4WsDrjn6yL2bhrzsdBfeA6OSfP2KQrNXt+5AhSsd/vBEBGXpQKUxIeT\n'\
+'lFGDVfCpVjs2OEfBEmaZ0nf3EkzppTh2ok5nSzvbndmblwy5BjoTHaxuDEVjpbaC\n'\
+'a11Evkib1tnZnkFIUF8GB70CgYEAh2aKhCoLS7rZSwZDtQpnGyDgLsIA0KDIPTdr\n'\
+'1zc9Lb80QLlVeB8N4+5kvXB6jezD1TMRrXET2ygxfebmb3jXSFPVZ7/iuTbAs1GS\n'\
+'n+t/qsZkkgljy5gnQI8oKwCuYQ+GQ30kYwA+W+lc03hEbOfeI9v4Bff64rFRCRda\n'\
+'7U9mDtUCgYBu6I2MBgVgt/DlbWvogbf01qfsFY3BRR6S7CuLsWkbwrTj3KoOpcoJ\n'\
+'IXsQjynetV2gpjxm1X18SQqcgF+7VNZi2ghdpYZZb+6fu7fa2lY/p2vTPSVjLUNl\n'\
+'LEO44LkRCRLcX6E/SAfxDVLezdDEtTSArVIpNNDRWifgB6zc8CFE4Q==\n'\
+'-----END RSA PRIVATE KEY-----'
+
+
+pub = '-----BEGIN PUBLIC KEY-----\n'\
+'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvrHwCs+XlfvG2CAZkgJo\n'\
+'FJ0XTHmKoCjpZlW8TjmgXmFRKPw8PyrcVvXJM1H2IAw6IyxrbfSy03dCGkTRU7Ra\n'\
+'pCe4qkkIpnKafb/wXD4UprDOQINVgya5GaHuD7Y3T7jV3I4hnlfs37AQ8oB4L44O\n'\
+'I17C1sM75O6fqIlOPkXkFthu/KoAbs7pm40jDIjMrdfUgKEMhq/TJ3Nk/4JXQpOo\n'\
+'yD9jk14XnLLLs6OPonzjEcuOefSSRrsJeGalraadWuBIZmFkGVnaUndjOI55Jmrj\n'\
+'q/7JdF2zHGnRtmOgYlRBDLZqep8VDjguH5TcrTzAng98q93E22vtJk1yO4F7DeiT\n'\
+'QwIDAQAB\n'\
+'-----END PUBLIC KEY-----'
+
+privkey = rsa.PrivateKey.load_pkcs1(pri.encode())
+
+signContent = rsa.sign(message.encode(), privkey, 'SHA-256')
+
+print(binascii.hexlify(signContent))
+
+# verfy
+# rsa.verify(message.encode(), signContent, pubkey)
+#
+```
+
+```more
+希望您贡献更多语言版本给我们作为用例，请发送至support@bitphare.com
+```
+
+## 响应格式
+
+```json
+响应：
+{
+"header":{
+"responseTime":"2019-04-24T17:01:01.985+0800","responseCode":"SUCCESS"},
+"body":
+{"message":"aaa","result":3,"time":"2019-04-24T17:01:01.985+0800"}
+}
+```
+
+
+## 通知收到确认格式
+
+参数 | 参数名称 | 类型（长度范围）| 参数说明 | 是否可空 | 样例
+---- | ------ | --------- | -------- | -------- | ------
+success | 是否成功 | boolean | true/false | 非空 | true
+
+**重试次数**
+6
+
+**重试间隔**
+单位：分钟
+
+序列：5,10,30,60,60,60
+
+<aside class="notice">
+通知确认格式不使用信封格式，不做加验签。
+如我方接收到不是该成功返回会继续尝试给您发放回调
+</aside>
+
+```json
+接收回调响应：
+{"success":true}
+```
+
+# 业务服务
+
+## 创建收单交易
+
+提交订单给BitExpress支付网关，获取BitExpress收银台链接展现给您的用户，以便用户在收银台完成对订单的付款。
+收银台支付多种支付方式
+
+* 服务名
+"service":"createAcquireOrder"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+amount | 交易金额 | BigDecimal(24,8) | 最小值参考各币种说明 | 非空 | 5.0
+name | 商品名称 | String(200) | 交易描述 | 非空 | Aaa
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+notifyUrl | 通知地址 | String(200) | 交易结果通知地址 | 可空 | https://yoursite.com/crypto-asset-payment/services/getresponse
+
+* 支持的资产代码
+<a href='https://www.bitexpress.io/#/rate' target=_blank >支持的资产代码</a>
+
+```json
+请求体样例：
+{"outTradeNo":"20190424181332","assetCode":"ETH",
+"amount":1.001,
+"name":"test","notifyUrl":
+"https://yoursite.com/crypto-asset-payment/services/getresponse"}
+
+请求内容样例
+{"header":{"requestTime":"2019-04-24T18:13:32.830+0800",
+"service":"CreateAcquireOrder","serviceVersion":1.0,
+"preserved":null},"body":{"outTradeNo":"20190424181332",
+"assetCode":"ETH","amount":1.001,
+"name":"test","notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse"}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+url | 收银台地址 | String(200) | 收银台URL | 非空 | https://www.bitexpress.io/cashier/index.html/#/cashier?token=996222ab86ef467e831abe9896e3c089
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-04-25T17:11:12.330+0800","responseCode":"SUCCESS"},"body":
+{"outTradeNo":"20190424181332",
+"url":"https://www.bitexpress.io/cashier/index.html/#/cashier?token=292f5d0e6eac4f6ea9d0bfe2dd551e7e"}}
+```
+
+* 是否有回调通知
+
+有
+
+回调通知内容和查询结果格式封装相同
+
+* 错误码
+
+错误码 | 描述
+------ | --------
+MEMBER_NOT_FOUND | 未找到会员信息
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+
+## 创建法币收单交易
+
+* 服务名
+"service":"createFiatAcquireOrder"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190514122649
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+fiatAmount | 法币支付金额 | BigDecimal | 法币金额 | 非空 | 20
+currency | 法币币种 | String(20) | 法币币种,目前仅支持CNY | 非空 | CNY
+name | 商品名称 | String(200) | 交易描述 | 非空 | legal
+email | 退款邮箱地址 | String(128) | 邮箱地址 | 非空 | abcd123@163.com
+language | 语言信息 | String(20) | 目前仅支持zh和en | 非空 | zh
+notifyUrl | 通知地址 | String(200) | 交易结果通知地址 | 非空 | https://yoursite.com/services/getresponse
+
+```json
+请求体样例：
+{"outTradeNo":"20190424181332","assetCode":"ETH",
+"fiatAmount":1000,"currency":"CNY",
+"name":"test","email":"xxx@212.com","language":"ENGLISH","notifyUrl":
+"https://yoursite.com/services/getresponse"}
+
+请求内容样例
+{"header":{"requestTime":"2019-04-24T18:13:32.830+0800",
+"service":"createFiatAcquireOrder","serviceVersion":1.0,
+"preserved":null},"body":{"outTradeNo":"20190424181332","assetCode":"ETH",
+"fiatAmount":1000,"currency":"CNY",
+"name":"test","email":"xxx@212.com","language":"ENGLISH","notifyUrl":
+"https://yoursite.com/services/getresponse"}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+url | 收银台地址 | String(200) | 收银台URL | 非空 | https://www.bitexpress.io/hosting-wallet-website/otcCashier.html#/legalCurrency?token=13257f383ff2433285bf3ba2f76d1415
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-04-25T17:11:12.330+0800","responseCode":"SUCCESS"},"body":
+{"outTradeNo":"20190424181332",
+"url":"https://www.bitexpress.io/hosting-wallet-website/otcCashier.html#/legalCurrency?token=13257f383ff2433285bf3ba2f76d1415"}}
+```
+
+* 是否有回调通知
+
+有
+
+回调通知内容和查询结果格式封装相同
+
+* 错误码
+
+错误码 | 描述
+------ | --------
+MEMBER_NOT_FOUND | 未找到会员信息
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+ASSET_CODE_UNSUPPORT_OTC | 资产代码不支持OTC
+CURRENCY_UNSUPPORT_OTC | 该币种不支持OTC
+OTC_AMOUNT_VALIDATE_FAILED | OTC交易金额校验失败
+
+## 单笔交易查询
+
+通过订单号（requestNo）查询订单的支付状态
+
+* 服务名
+"service":"querySingleOrder"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+
+```json
+请求体样例：
+{"header":{"requestTime":"2019-04-24T20:13:18.337+0800",
+"service":"querySingleOrder",
+"serviceVersion":1.0,"preserved":null},"body":{"outTradeNo":"20190424181332"}}
+
+请求内容样例
+{"header":{"requestTime":"2019-04-24T18:13:32.830+0800",
+"service":"querySingleOrder","serviceVersion":1.0,
+"preserved":null},"body":{"header":{"requestTime":"2019-04-24T20:13:18.337+0800",
+"service":"querySingleOrder",
+"serviceVersion":1.0,"preserved":null},"body":{"outTradeNo":"20190424181332"}}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+id | 订单编号 | String(17) | 订单编号 | 非空 | 20190424000041466
+amount | 交易总金额 | BigDecimal(24,8) | 交易金额 | 非空 | 1.001
+realArrivedAmount | 实际到账金额 | BigDecimal(24,8) | 实际到账金额 | 可空 |
+interactionMode | 交互模式 | String(32) | 交互模式 | 非空 | CASHIER
+name | 商品名称 | String(200) | 商品描述 | 非空 | Aaa
+payeeUid | 收款方会员号 | String(32) | 收款方会员标识 | 非空 | 459
+status | 订单状态 | String(50) | 订单状态标识 | 非空 | SUCCESS
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+expiredTime | 过期时间 | Date | 订单到期时间 | 非空 | 2019-04-26T05:11:10.376+0800
+createdTime | 创建时间 | Date | 下单时间 | 非空 | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | 最后更新时间 | Date | 订单最后更新时间 | 非空 | 2019-04-26T05:11:10.376+0800
+
+* status取值表
+
+状态码 | 描述
+----- | ------
+CREATED | 已创建
+PAID | 已支付
+SUCCESS | 成功
+FAILURE | 失败 
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-04-24T20:06:36.062+0800",
+"responseCode":"SUCCESS"},"body":{"amount":1.001,"interactionMode":"CASHIER",
+"name":"20190424181332-test","payeeUid":"459","status":"CREATED",
+"assetCode":"ETH","createdTime":"2019-04-24T18:13:37.340+0800",
+"lastUpdatedTime":"2019-04-24T19:35:01.444+0800",
+"id":"20190424000041466","expiredTime":"2019-04-25T06:13:35.299+0800"}}
+```
+
+* 错误码
+
+错误码 | 描述
+----- | ------
+MEMBER_NOT_FOUND | 未找到会员信息
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+
+## 创建为订单付款交易
+
+为创建的收单订单进行支付，付款人可以不是收单订单的创建人。
+
+* 服务名
+"service":"createPaymentForOrder"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+amount | 交易金额 | BigDecimal(24,8) | 最小值参考各币种说明 | 非空 | 5.0
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+targetOrderId | 需付款订单号 | String(200) | 需付款订单号 | 非空 | 20190424102219
+payeeUid | 需付款订单原收款人uid | String(32) | 需付款订单原收款人uid，用于校验交易合法性 | 非空 | 231
+notifyUrl | 通知地址 | String(200) | 交易结果通知地址 | 可空  | https://yoursite.com/crypto-asset-payment/services/getresponse
+
+```json
+请求内容样例
+{"header":{"requestTime":"2019-04-25T21:18:33.911+0800",
+"service":"createPaymentForOrder","serviceVersion":"1.0"},"body":
+{"outTradeNo":"20190425211833","assetCode":"ETH","amount":"3.33","targetOrderId":"20190424102219",
+"payeeUid":"123","notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse"}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+amount | 交易总金额 | BigDecimal(24,8) | 交易金额 | 非空 | 3.33
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+payerUid | 付款方会员号 | String(32) | 付款方会员标识 | 非空 | 459
+payeeUid | 需付款订单原收款人uid | String(32) | 需付款订单原收款人uid，用于校验交易合法性 | 非空 | 231
+targetOrderId | 需付款订单号 | String(200) | 需付款订单号 | 非空 | 20190424102219
+status | 订单状态 | String(10) | 订单状态标识 | 非空 | SUCCESS
+createdTime | 创建时间 | Date | 下单时间 | 非空 | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | 最后更新时间 | Date | 订单最后更新时间 | 非空 | 2019-04-26T05:11:10.376+0800
+
+* status取值表
+
+状态码 | 描述
+----- | ------
+CREATED | 已创建
+SUCCESS | 成功
+FAILURE | 失败
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-04-25T21:18:54.536+0800",
+"responseCode":"SUCCESS"},"body":{"amount":3.33,"payerUid":"459","payeeUid":"123",
+"targetOrderId":"20190424102219","assetCode":"ETH","status":"SUCCESS",
+"createdTime":"2019-04-25T21:18:48.835+0800","lastUpdatedTime":
+"2019-04-25T21:18:50.472+0800","outTradeNo":"20190425211833"}}
+```
+
+* 是否有回调通知
+
+有
+
+回调通知内容和查询结果格式封装相同
+
+* 错误码
+
+错误码 | 描述
+----- | ------
+DUPLICATE_REQUEST_NO | 重复的请求号
+TRADE_AMOUNT_TOO_FEWER | 交易金额偏小
+MEMBER_NOT_FOUND | 未找到会员信息
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+
+## 为订单付款的交易查询
+
+查询为创建的收单订单进行支付的订单。
+
+* 服务名
+"service":"queryPaymentForOrder"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(20) | 请求序列号 | 非空 | 20190424102216
+
+```json
+请求内容样例
+{"header":{"requestTime":"2019-04-24T19:13:44.306+0800",
+"service":"queryPayToAddress","serviceVersion":1.0,
+"preserved":null},"body":{"outTradeNo":"20190424141559"}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+amount | 交易总金额 | BigDecimal(24,8) | 交易金额 | 非空 | 3.33
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+payerUid | 付款方会员号 | String(32) | 付款方会员标识 | 非空 | 459
+payeeUid | 需付款订单原收款人uid | String(32) | 需付款订单原收款人uid，用于校验交易合法性 | 非空 | 231
+targetOrderId | 需付款订单号 | String(200) | 需付款订单号 | 非空 | 20190424102219
+status | 订单状态 | String(10) | 订单状态标识 | 非空 | SUCCESS
+createdTime | 创建时间 | Date | 下单时间 | 非空 | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | 最后更新时间 | Date | 订单最后更新时间 | 非空 | 2019-04-26T05:11:10.376+0800
+
+* status取值表
+
+状态码 | 描述
+----- | ------
+CREATED | 已创建
+SUCCESS | 成功
+FAILURE | 失败
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-04-25T21:18:54.536+0800",
+"responseCode":"SUCCESS"},"body":{"amount":3.33,"payerUid":"459","payeeUid":"123",
+"targetOrderId":"20190424102219","assetCode":"ETH","status":"SUCCESS",
+"createdTime":"2019-04-25T21:18:48.835+0800","lastUpdatedTime":
+"2019-04-25T21:18:50.472+0800","outTradeNo":"20190425211833"}}
+```
+
+* 错误码
+
+错误码 | 描述
+----- | ------
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+
+## 付款到钱包地址
+
+托管钱包付款到数字钱包地址
+
+* 服务名
+"service":"payToAddress"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+amount | 交易金额 | BigDecimal(24,8) | 最小值参考各币种说明 | 非空 | 5.05
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+receiveAddress | 收款地址 | String(60) | 收款方钱包地址 | 非空 | 0xf8d6478ee5bbb23e5084fbec67f6c7ad6001d026
+notifyUrl | 通知地址 | String(200) | 交易结果通知地址 | 可空 | https://yoursite.com/crypto-asset-payment/services/getresponse
+
+```json
+请求内容样例
+{"header":{"requestTime":"2019-04-24T20:09:57.436+0800",
+"service":"payToAddress","serviceVersion":1.0,"preserved":null},
+"body":{"outTradeNo":"20190424141559","assetCode":"ETH",
+"amount":5.05,
+"receiveAddress":"0xf8d6478ee5bbb23e5084fbec67f6c7ad6001d026",
+"notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse"}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+amount | 交易总金额 | BigDecimal(24,8) | 交易金额 | 非空 | 5.05
+fee | 手续费 | BigDecimal(24,8) | 交易手续费 | 非空 | 0.001
+receiverAddress | 收款方地址 | String(60) | 收款方钱包地址 | 非空 |0xf8d6478ee5bbb23e5084fbec67f6c7ad6001d026
+payerUid | 付款方会员号 | String(32) | 付款方会员标识 | 非空 | 459
+status | 订单状态 | String(10) | 订单状态标识 | 非空 | SUCCESS
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+createdTime | 创建时间 | Date | 下单时间 | 非空 | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | 最后更新时间 | Date | 订单最后更新时间 | 非空 | 2019-04-26T05:11:10.376+0800
+
+* status取值表
+
+状态码 | 描述
+----- | ------
+SUCCESS | 成功
+FAILED | 失败
+PROCESSING | 处理中
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-04-24T20:20:20.030+0800",
+"responseCode":"SUCCESS"},"body":{"outTradeNo":"20190424141559","amount":5.05,"fee":0.001,
+"payerUid":"459","status":"SUCCESS","receiverAddress":"0xf8d6478ee5bbb23e5084fbec67f6c7ad6001d026",
+"assetCode":"ETH","createdTime":"2019-04-24T14:16:02.000+0800",
+"lastUpdatedTime":"2019-04-24T14:22:03.000+0800"}}
+```
+
+* 是否有回调通知
+
+有
+
+回调通知内容和查询结果格式封装相同
+
+* 错误码
+
+错误码 | 描述
+-------- | ---------
+DUPLICATE_REQUEST_NO | 重复的请求号
+MEMBER_NOT_FOUND | 未找到会员信息
+TRADE_AMOUNT_TOO_FEWER | 交易金额偏小
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+
+## 付款到钱包地址订单查询
+
+查询付款到钱包地址的订单状态
+
+* 服务名
+"service":"queryPayToAddress"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+
+```json
+请求内容样例
+{"header":{"requestTime":"2019-04-24T19:13:44.306+0800",
+"service":"queryPayToAddress","serviceVersion":1.0,
+"preserved":null},"body":{"outTradeNo":"20190424141559"}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+amount | 交易总金额 | BigDecimal(24,8) | 交易金额 | 非空 | 5.05
+fee | 手续费 | BigDecimal(24,8) | 交易手续费 | 非空 | 0.001
+receiverAddress | 收款方地址 | String(60) | 收款方钱包地址 | 非空 |0xf8d6478ee5bbb23e5084fbec67f6c7ad6001d026
+payerUid | 付款方会员号 | String(32) | 付款方会员标识 | 非空 | 459
+status | 订单状态 | String(10) | 订单状态标识 | 非空 | SUCCESS
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+createdTime | 创建时间 | Date | 下单时间 | 非空 | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | 最后更新时间 | Date | 订单最后更新时间 | 非空 | 2019-04-26T05:11:10.376+0800
+
+* status取值表
+
+状态码 | 描述
+----- | ------
+SUCCESS | 成功
+FAILED | 失败
+PROCESSING | 处理中
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-04-24T20:20:20.030+0800",
+"responseCode":"SUCCESS"},"body":{"outTradeNo":"20190424141559","amount":5.05,"fee":0.001,
+"payerUid":"459","status":"SUCCESS","receiverAddress":"0xf8d6478ee5bbb23e5084fbec67f6c7ad6001d026",
+"assetCode":"ETH","createdTime":"2019-04-24T14:16:02.000+0800",
+"lastUpdatedTime":"2019-04-24T14:22:03.000+0800"}}
+```
+* 错误码
+
+错误码 | 描述
+---- | -------
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+
+## 付款到BitExpress账户
+
+BitExpress托管钱包付款到托管钱包
+
+* 服务名
+"service":"payToAccount"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+amount | 交易金额 | BigDecimal(24,8) | 最小值参考各币种说明 | 非空 | 5.0
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+receiverMobile | 收款方手机号码 | String(14) | 收款方会员手机号码 | 非空 | +8613262958193
+notifyUrl | 通知地址 | String(200) | 交易结果通知地址 | 可空  | https://yoursite.com/crypto-asset-payment/services/getresponse
+
+```json
+请求内容样例
+{"header":{"requestTime":"2019-04-25T21:18:33.911+0800",
+"service":"payToAccount","serviceVersion":"1.0"},"body":
+{"outTradeNo":"20190425211833","assetCode":"ETH","amount":"3.33","receiverMobile":"+8613262958193",
+"notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse"}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+amount | 交易总金额 | BigDecimal(24,8) | 交易金额 | 非空 | 3.33
+payerUid | 付款方会员号 | String(32) | 付款方会员标识 | 非空 | 459
+receiverMobile | 收款方手机号码 | String(14) | 收款方会员手机号码 | 非空 | +8613262958193
+status | 订单状态 | String(10) | 订单状态标识 | 非空 | SUCCESS
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+createdTime | 创建时间 | Date | 下单时间 | 非空 | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | 最后更新时间 | Date | 订单最后更新时间 | 非空 | 2019-04-26T05:11:10.376+0800
+
+* status取值表
+
+状态码 | 描述
+----- | ------
+SUCCESS | 成功
+FAILED | 失败
+PROCESSING | 处理中
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-04-25T21:18:54.536+0800",
+"responseCode":"SUCCESS"},"body":{"amount":3.33,"payerUid":"459",
+"receiverMobile":"+8613262958193","assetCode":"ETH","status":"SUCCESS",
+"createdTime":"2019-04-25T21:18:48.835+0800","lastUpdatedTime":
+"2019-04-25T21:18:50.472+0800","outTradeNo":"20190425211833"}}
+```
+
+* 是否有回调通知
+
+有
+
+回调通知内容和查询结果格式封装相同
+
+* 错误码
+
+错误码 | 描述
+----- | ------
+DUPLICATE_REQUEST_NO | 重复的请求号
+TRADE_AMOUNT_TOO_FEWER | 交易金额偏小
+MEMBER_NOT_FOUND | 未找到会员信息
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+
+## 付款到托管账户订单查询
+
+查询付款到托管账户的订单状态
+
+* 服务名
+"service":"queryPayToAccount"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(20) | 请求序列号 | 非空 | 20190424102216
+
+```json
+请求内容样例
+{"header":{"requestTime":"2019-04-24T19:13:44.306+0800",
+"service":"queryPayToAddress","serviceVersion":1.0,
+"preserved":null},"body":{"outTradeNo":"20190424141559"}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+amount | 交易总金额 | BigDecimal(24,8) | 交易金额 | 非空 | 3.33
+payerUid | 付款方会员号 | String(32) | 付款方会员标识 | 非空 | 459
+receiverMobile | 收款方手机号码 | String(14) | 收款方会员手机号码 | 非空 | +8613262958193
+status | 订单状态 | String(10) | 订单状态标识 | 非空 | SUCCESS
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+createdTime | 创建时间 | Date | 下单时间 | 非空 | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | 最后更新时间 | Date | 订单最后更新时间 | 非空 | 2019-04-26T05:11:10.376+0800
+
+* status取值表
+
+状态码 | 描述
+----- | ------
+SUCCESS | 成功
+FAILED | 失败
+PROCESSING | 处理中
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-04-25T21:18:54.536+0800",
+"responseCode":"SUCCESS"},"body":{"amount":3.33,"payerUid":"459",
+"receiverMobile":"+8613262958193","assetCode":"ETH","status":"SUCCESS",
+"createdTime":"2019-04-25T21:18:48.835+0800","lastUpdatedTime":
+"2019-04-25T21:18:50.472+0800","outTradeNo":"20190425211833"}}
+```
+
+* 错误码
+
+错误码 | 描述
+----- | ------
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+
+## 余额查询
+
+* 服务名
+"service":"queryBalance"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+
+```json
+请求内容样例
+{"header":{"requestTime":"2019-05-14T12:26:49.492+0800","service":"queryBalance",
+"serviceVersion":1.0},"body":{"assetCode":"ETH"}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+totalAmount | 总金额 | BigDecimal(24,8) | 用户某一币种余额总数 | 非空 | 6868612467
+availableAmount | 可用金额 | BigDecimal(24,8) | 可用金额 | 非空 | 6868612467
+frozenAmount | 冻结金额 | BigDecimal(24,8) | 冻结金额 | 非空 | 0
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-05-14T18:43:30.014+0800",
+"responseCode":"SUCCESS"},"body":{"assetCode":"ETH","totalAmount":"6868612467"}}
+```
+
+* 错误码
+
+错误码 | 描述
+----- | ------
+MEMBER_NOT_FOUND | 未找到会员信息
+SYSTEM_ERROR | 系统错误
+ASSET_CODE_NOT_FOUND | 资产代码未找到
+
+# 响应代码附表
+
+信封返回内容中，内容结构体内的响应头中的responseCode
+
+错误码 | 描述
+----- | ------
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+DUPLICATE_REQUEST_NO | 重复的请求号
+TRADE_AMOUNT_TOO_FEWER | 交易金额偏小
+MEMBER_NOT_FOUND | 未找到会员信息
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+REQUEST_FORMAT_ERROR | 请求格式错误
+REQUEST_USER_NOT_FOUND | 发起请求用户未找到
+REQUEST_USER_OPEN_API_DISABLED | 发起请求用户未开启open-api
+VIERIFY_SIGNATURE_FAILURE | 验签失败
+
+
+# HTTP响应错误码
+
+如果您调用我们的接口返回如下报错，那么是网络或者我们服务出现了问题，请关注公告、在telegram与我们联系、等待网络或者服务恢复。
+
+Error Code | Meaning
+---------- | -------
+400 | Bad Request -- Your request is invalid.
+403 | Forbidden -- The kitten requested is hidden for administrators only.
+404 | Not Found -- The specified kitten could not be found.
+405 | Method Not Allowed -- You tried to access a kitten with an invalid method.
+406 | Not Acceptable -- You requested a format that isn't json.
+500 | Internal Server Error -- We had a problem with our server. Try again later.
+503 | Service Unavailable -- We're temporarily offline for maintenance. Please try again later.
+
+
+
+
+
+
+

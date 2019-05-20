@@ -1,0 +1,1167 @@
+---
+title: BitExpress API Reference
+
+language_tabs: # must be one of https://git.io/vQNgJ
+  - shell
+  - php
+  - go
+  - python
+  - more
+
+
+toc_footers:
+  - BitExpress Payment API
+  - <a href='index_en.html'>English</a> | <a href='index.html'>简体中文</a> 
+  - <a href='https://github.com/lord/slate'>Documentation Powered by Slate</a>
+
+search: true
+---
+
+# Introduction
+
+BitExpress is a global payment processing company that only uses digital currency. BitExpress provides the simplest payment collection API, so that those who want to collect digital money can be able to collect digital payment immediately. 
+BitExpress works closely with digital currency exchanges, OTC markets and anchored currency issuers in various countries to provide payment in fiat currency for users who have not yet owned digital currency, and a complete solution to the settlement of digital currency for merchants, to facilitate the development of customers for merchants who collect digital currency. The following API reference is to facilitate the docking between merchant system and BitExpress payment system, transferring transaction parameters, accepting transaction results callback, reconciliation, etc.
+
+
+# Business Access Process
+
+To become a BitExpress merchant, you only need to download<a href='https://www.bitexpress.io' >BitExpress APP</a> and creating secret key or importing secret key, and then enter the main interface of the app. BitExpress merchants do not need to authenticate, but BitExpress recommends that merchants complete the real-name authentication  (BitExpress uses the block chain authentication service system provided by DCC and will not retain the information of the real-name authentication. The user authentication information will be stored in local app, and BitExpress will only compare the parameters submitted by users with the information recorded in the block chain and verify when needed.) to retrieve the account easily when the account, password or private key is lost. After entering the main interface of BitExpress app, press the “service” button and then “Business Receipt Service” button, the merchants can view all the information required by payment request. We offer independent merchant console so that merchants can view transactions, download reconciliation files, view data analysis, etc. more conveniently. Merchants can access<a href='https://www.bitexpress.io/#/merchant/login' >BitExpress Merchant Console</a>by login through using the app to scan a QR Code.
+
+<aside class="notice">
+BitExpress has completely abandoned the user name and password authentication system, but utilized digital wallet address as user ID and PKI authentication system to authenticate. So the users who have installed BitExpress should backup the digital wallet address after creating it, in order to avoid the loss of digital assets caused by the loss of digital wallet secret key.
+</aside>
+
+# Basic Information
+
+Business access requires the following basic information:
+
+Parameter | Description 
+----------------- | ------- 
+uid | Payeeid，you can find it in merchant-console
+RSA KEY | Generated when the acquiring service is opened in the APP, the public key is automatically uploaded to the server, and the private key is copied from the mobile phone. BitExpress does not save the user's private key. If it is lost, use the update function to update the key.
+Platform Public Key | Generated in the APP，Used to accept signature verification of order status notifications. Merchants can only obtain public keys, the private key are stored in the BitExpress system.
+API URL | https://www.bitexpress.io/api/gateway.do
+HTTP parameter | POST , http header: Content-Type: application/json , Accept: application/json, application/*+json
+Character-set  | UTF-8
+Time format | ISO8601 , `yyyy-MM-dd'T'HH:mm:ss.SSSZ`
+
+# Form of Data Encapsulation
+
+<%= image_tag "images/letterstr.png" %>
+
+## Outer Envelope
+
+The function of the outer envelope is to convert the content that needs to be protected into a string and sign it. When the recipient of the letter passes the signature, it decodes the content by itself. The purpose of the whole mechanism is to isolate the checking function from the business function.
+
+Parameter | Parameter Name | Type（Length） | Description  | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+uid | payeeid | Number(20) | payeeuid | Required | 100
+content | content | String(100,000) | content | Required | Aaa
+signature | signature | String(2000) | signature hex format | Required | signature the content
+signatureVersion | inferface version | Number(5) | signatureVersion | Required | 1.0
+
+`The order of parameters does not need to be arranged strictly in the order of the above fields.`
+
+## Content Encapsulation
+
+Content is divided into request content and response content.
+
+### Request Content format
+
+Parameter | Parameter Name | Type（Length） | Required 
+-------- | -------- | ---------------- | ------- 
+header |  header | Json Object | Required 
+body |  body | Json Object | Optional 
+
+* HEAD Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+requestTime | requestTime | date | requestTime,date format:iso8601 | Required | 2019-04-23T19:56:59.678+0800
+service | service interface | String(50) | service name | Required | acquireOrder
+serviceVersion | serviceVersion | BigDecimal | service version | Required | 1.0
+preserved | reserved text | String(200) | Request and response are the same | Optional | User defined
+
+* BODY Format
+
+The format of the request body is determined by the business. 
+It can be a simple data type, such as an integer, a character, or a complex object.
+See the business interface chapter for specific interfaces.
+
+### Request Content Demo
+`{"header":{"requestTime":"2019-04-23T19:56:59.444+0800","service":"plus","serviceVersion":1.0},"body":{"a":1,"b":2,"time":"2019-04-23T19:56:59.442+0800"}}`
+
+### Response Content format
+
+Parameter | Parameter Name | Type（Length） | Required 
+-------- | -------- | ---------------- | ------- 
+header |  header | Json Object | Required 
+body |  body | Json Object | Optional 
+
+* Response HEAD format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+requestTime | requestTime | date | requestTime,date format:iso8601 | Required | 2019-04-23T19:56:59.678+0800
+responseCode | responseCode | String(20) | See the appendix for code listing | Required | SUCCESS
+errorMessage | errorMessage | String(2000) | Describe the error content when there is an error | Optional | 
+preserved | reserved text | String(200) | Request and response are the same | Optional | User defined
+
+* Response BODY format
+
+The format of the response body is determined by the business. 
+It can be a simple data type, such as an integer, a character, or a complex object.
+
+## Signature
+
+**Algorithm : SHA256withRSA**
+
+* Key Create Method
+
+```shell
+# openssl genrsa -out test_sign_private_key.pem 1024
+# openssl pkcs8 -topk8 -inform PEM -in test_sign_private_key.pem -outform PEM -out test_sign_pri.pem -nocrypt
+# openssl rsa -in  test_sign_private_key.pem -pubout -out test_sign_pub.pem
+
+test_sign_pri.pem is PrivateKey file
+test_sign_pub.pem is PublicKey file
+```
+
+* pem file private key demo
+
+`
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEAvrHwCs+XlfvG2CAZkgJoFJ0XTHmKoCjpZlW8TjmgXmFRKPw8PyrcVvXJM1H2IAw6IyxrbfSy03dCGkTRU7RapCe4qkkIpnKafb/wXD4UprDOQINVgya5GaHuD7Y3T7jV3I4hnlfs37AQ8oB4L44OI17C1sM75O6fqIlOPkXkFthu/KoAbs7pm40jDIjMrdfUgKEMhq/TJ3Nk/4JXQpOoyD9jk14XnLLLs6OPonzjEcuOefSSRrsJeGalraadWuBIZmFkGVnaUndjOI55Jmrjq/7JdF2zHGnRtmOgYlRBDLZqep8VDjguH5TcrTzAng98q93E22vtJk1yO4F7DeiTQwIDAQABAoIBAEoUjwdsINvDrTodskFODQfhBQGQ/+D7M7ytFtOewGWZ0bEl1/PEH0frAMgekYpepaEvauaS1nufCz9wN4+Yc1PtGGiSqbkbsVejnmj/Nv+QlPdr7ebevq6uAPD6nR8r02z0jCvaxWsal2LVtJroySZFdFSBEL39U2niOVKozRRwQJXmD8frmcAwwLLSfM0rnhMmSdSR1KWW3UyvFagc0mtmEGqxinQnqLbhc6ZxVZjT2DYcs8BlnGfjA8kYYhawgUKsCxI7MNoX4xAAXo1gxKH1xDiaht+3zRFNKHxIzAqzY6IgR7NUlX0Y4HOOZgBaogQ95sbvXwit+wHbG8gqMEUCgYEA9HF5z9siAtSpF4KMjVOx3iE8MM/7MBRgWFZQOWrfRNSLwsl3GPhSujrojJocKa4xV8ipG1hJ6ZBCYljPX+y8XikCVQfNT/aGsbrIVhV+QG0l8dCtlpn184onLqS4rxaaX/4z7XQr17W71Z5n8GtEAxXkpO3UfFSGWHa/HJxMWXcCgYEAx7XxAEwMaK/ekjZenG+6P6/1HsXtc5/4+4V4iiey6sJ2Kui98/Yl3sIEHNxLyfQPkTwjPXwyPdItSSrWrM5G6FUeXcr5WhD2GK8LiY5eoNCbp5tqQND/Nvv0MJvYNa9Yy8qxrGeNn7lYbSD47Qd0o8DmSUBjtkzePu3eZC67x5UCgYEAw3tECN+bcVwT5YM3V4YJBjTZ58dLf4WsDrjn6yL2bhrzsdBfeA6OSfP2KQrNXt+5AhSsd/vBEBGXpQKUxIeTlFGDVfCpVjs2OEfBEmaZ0nf3EkzppTh2ok5nSzvbndmblwy5BjoTHaxuDEVjpbaCa11Evkib1tnZnkFIUF8GB70CgYEAh2aKhCoLS7rZSwZDtQpnGyDgLsIA0KDIPTdr1zc9Lb80QLlVeB8N4+5kvXB6jezD1TMRrXET2ygxfebmb3jXSFPVZ7/iuTbAs1GSn+t/qsZkkgljy5gnQI8oKwCuYQ+GQ30kYwA+W+lc03hEbOfeI9v4Bff64rFRCRda7U9mDtUCgYBu6I2MBgVgt/DlbWvogbf01qfsFY3BRR6S7CuLsWkbwrTj3KoOpcoJIXsQjynetV2gpjxm1X18SQqcgF+7VNZi2ghdpYZZb+6fu7fa2lY/p2vTPSVjLUNlLEO44LkRCRLcX6E/SAfxDVLezdDEtTSArVIpNNDRWifgB6zc8CFE4Q==
+-----END RSA PRIVATE KEY-----
+`
+
+* pem file public key demo
+
+`
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvrHwCs+XlfvG2CAZkgJoFJ0XTHmKoCjpZlW8TjmgXmFRKPw8PyrcVvXJM1H2IAw6IyxrbfSy03dCGkTRU7RapCe4qkkIpnKafb/wXD4UprDOQINVgya5GaHuD7Y3T7jV3I4hnlfs37AQ8oB4L44OI17C1sM75O6fqIlOPkXkFthu/KoAbs7pm40jDIjMrdfUgKEMhq/TJ3Nk/4JXQpOoyD9jk14XnLLLs6OPonzjEcuOefSSRrsJeGalraadWuBIZmFkGVnaUndjOI55Jmrjq/7JdF2zHGnRtmOgYlRBDLZqep8VDjguH5TcrTzAng98q93E22vtJk1yO4F7DeiTQwIDAQAB
+-----END PUBLIC KEY-----
+`
+<aside class="notice">
+The above example may have unnecessary spaces. Please remove unnecessary spaces when using.
+If you use a string as the key to call, you don't need to keep `-----BEGIN RSA PRIVATE KEY-----`，
+If you save as a pem file，put`-----BEGIN RSA PRIVATE KEY-----`In a separate line.
+</aside>
+
+## Signed content(same as Request Content)
+
+```json
+{"header":{"requestTime":"2019-04-23T19:56:59.444+0800","service":"plus",
+"serviceVersion":1.0},"body":{"a":1,"b":2,"time":"2019-04-23T19:56:59.442+0800"}}
+```
+
+<aside class="notice">
+Please note that json's formatted content such as 
+carriage return indentation will also be signed.
+</aside>
+
+## Signature result(HEX format)
+
+```json
+29d1e1e6924986180482f0ec8463703d0a91a87d39f2b26c64509aedc59ce3f79d00a1e10e5b4cef
+999c26541e2bfe696ed3d1457f338a7d1382ae5fc6ee82f7a1398d60aec83b22b2d42a9ac18351cf
+ec459a83053f3033932d68fc86d24701180da1bb9582f0209a37625a9c528b83bb69a6b2f3e09e82
+e917f8b606d39356bb40446a121520f98c76f1b0bbebedfefa3624fa90762bb282d497e55b20da69
+8edec209c03b9ae2c7d2ac50412d1c682864e7659cf49fd7bc35d1725e1d6c805170d080f5b256f9
+b6fbfea51e06e24496d1c5b411a7eec467ff20d2ffc020f8939a0f379bb03844dafa2bb05d611ff6
+af53d225bead027c0aa26b78711ff02a
+```
+
+## Envelope
+
+The above result is encapsulated into a request envelope and serialized into json. The result is as follows:
+
+```json
+{"uid":459,"signature":"29d1e1e6924986180482f0ec8463703d0a91a87d39f2b
+26c64509aedc59ce3f79d00a1e10e5b4cef999c26541e2bfe696ed3d1457f338a7d13
+82ae5fc6ee82f7a1398d60aec83b22b2d42a9ac18351cfec459a83053f3033932d68f
+c86d24701180da1bb9582f0209a37625a9c528b83bb69a6b2f3e09e82e917f8b606d3
+9356bb40446a121520f98c76f1b0bbebedfefa3624fa90762bb282d497e55b20da698
+edec209c03b9ae2c7d2ac50412d1c682864e7659cf49fd7bc35d1725e1d6c805170d0
+80f5b256f9b6fbfea51e06e24496d1c5b411a7eec467ff20d2ffc020f8939a0f379bb
+03844dafa2bb05d611ff6af53d225bead027c0aa26b78711ff02a","signatureVers
+ion":1.0,"content":"{\"header\":{\"requestTime\":\"2019-04-23T19:56:5
+9.444+0800\",\"service\":\"plus\",\"serviceVersion\":1.0},\"body\":
+{\"a\":1,\"b\":2,\"time\":\"2019-04-23T19:56:59.442+0800\"}}"}
+```
+
+# Submit a request
+
+```shell
+Request：
+curl -d 
+{
+  "uid": 459,
+  "signature": "1747494d5c92e8bdc2e5e21427aff64f988b94821ecf08ee68cd3a45eb0300fa229e1c008af94e91ce4cf
+  54251cf4554a5de2fc981ba6d69ebff47471af9c67f3a9e4116aa30ae40919bc723bf6d092be31007a319f90262e8756cae
+  6cb9485607e08fccf6d7aabcc90bc0e7d3a7ce6ef4cefeb9cc3ffcee29668cf97a3ae3e321b1ea6a103a0437e27c44e48a4
+  13c157899c22014b2820a495c5ce7e54563d135499c12fe505d647434ba5e3d79f6fa200d2fd7784d43f635a7a72ffb0359
+  f9c2c7648a25c4e08bcbbb1b30979e54b250a488ac2230e2909dad4aa341bdaee4adab92ed330ea4ad0d92eaf1aaaea0786
+  9bf46640e698b586fea683654d1e49d",
+  "signatureVersion": 1.0,
+  "content": "{\"header\":{\"requestTime\":\"2019-04-23T19:40:03.505+0800\",\"service\":\"plus\",
+  \"serviceVersion\":1.0},\"body\":{\"a\":1,\"b\":2,\"time\":\"2019-04-23T19:40:03.502+0800\"}}"
+} 
+https://www.bitexpress.io/api/gateway.do
+```
+
+```go
+package main
+
+import (
+  "crypto"
+  "crypto/rand"
+  "crypto/rsa"
+  "crypto/sha256"
+  "crypto/x509"
+  "encoding/hex"
+  "encoding/pem"
+  "io/ioutil"
+
+  "errors"
+  "fmt"
+)
+
+var (
+  // 初始化key
+  privateKey = loadKey("./bitexpress.privkey.pem")
+)
+
+func main() {
+  // 请求体
+  var signString = `{"header":{"requestTime":"2019-04-23T19:56:59.444+0800",
+  "service":"plus","serviceVersion":1.0},"body":
+  {"a":1,"b":2,"time":"2019-04-23T19:56:59.442+0800"}}`
+
+  encryptedString, err := RsaEncrypt([]byte(signString))
+  if err != nil {
+    panic(err)
+  }
+  signature := hex.EncodeToString(encryptedString)
+  fmt.Println(signature)
+}
+
+// 加密
+func RsaEncrypt(origData []byte) ([]byte, error) {
+  priv, err := x509.ParsePKCS1PrivateKey(privateKey.Bytes)
+  if err != nil {
+    fmt.Println("parse priv key error")
+    return nil, err
+  }
+  hashed := sha256.New()
+  hashed.Write(origData)
+
+  return rsa.SignPKCS1v15(rand.Reader, priv, crypto.SHA256, hashed.Sum(nil))
+}
+
+func loadKey(keyPath string) *pem.Block {
+  pemContent, err := ioutil.ReadFile(keyPath)
+  if err != nil {
+    panic(err)
+  }
+
+  return initKey(pemContent)
+}
+
+func initKey(pemContent []byte) *pem.Block {
+  block, _ := pem.Decode(pemContent)
+
+  if block == nil {
+    panic(errors.New("failed to parse PEM block containing the key"))
+  }
+
+  return block
+}
+
+```
+
+
+ ```php
+    <?php
+        $privateKey = <<<EOF
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEAvrHwCs+XlfvG2CAZkgJoFJ0XTHmKoCjpZlW8TjmgXmFRKPw8
+PyrcVvXJM1H2IAw6IyxrbfSy03dCGkTRU7RapCe4qkkIpnKafb/wXD4UprDOQINV
+gya5GaHuD7Y3T7jV3I4hnlfs37AQ8oB4L44OI17C1sM75O6fqIlOPkXkFthu/KoA
+bs7pm40jDIjMrdfUgKEMhq/TJ3Nk/4JXQpOoyD9jk14XnLLLs6OPonzjEcuOefSS
+RrsJeGalraadWuBIZmFkGVnaUndjOI55Jmrjq/7JdF2zHGnRtmOgYlRBDLZqep8V
+DjguH5TcrTzAng98q93E22vtJk1yO4F7DeiTQwIDAQABAoIBAEoUjwdsINvDrTod
+skFODQfhBQGQ/+D7M7ytFtOewGWZ0bEl1/PEH0frAMgekYpepaEvauaS1nufCz9w
+N4+Yc1PtGGiSqbkbsVejnmj/Nv+QlPdr7ebevq6uAPD6nR8r02z0jCvaxWsal2LV
+tJroySZFdFSBEL39U2niOVKozRRwQJXmD8frmcAwwLLSfM0rnhMmSdSR1KWW3Uyv
+Fagc0mtmEGqxinQnqLbhc6ZxVZjT2DYcs8BlnGfjA8kYYhawgUKsCxI7MNoX4xAA
+Xo1gxKH1xDiaht+3zRFNKHxIzAqzY6IgR7NUlX0Y4HOOZgBaogQ95sbvXwit+wHb
+G8gqMEUCgYEA9HF5z9siAtSpF4KMjVOx3iE8MM/7MBRgWFZQOWrfRNSLwsl3GPhS
+ujrojJocKa4xV8ipG1hJ6ZBCYljPX+y8XikCVQfNT/aGsbrIVhV+QG0l8dCtlpn1
+84onLqS4rxaaX/4z7XQr17W71Z5n8GtEAxXkpO3UfFSGWHa/HJxMWXcCgYEAx7Xx
+AEwMaK/ekjZenG+6P6/1HsXtc5/4+4V4iiey6sJ2Kui98/Yl3sIEHNxLyfQPkTwj
+PXwyPdItSSrWrM5G6FUeXcr5WhD2GK8LiY5eoNCbp5tqQND/Nvv0MJvYNa9Yy8qx
+rGeNn7lYbSD47Qd0o8DmSUBjtkzePu3eZC67x5UCgYEAw3tECN+bcVwT5YM3V4YJ
+BjTZ58dLf4WsDrjn6yL2bhrzsdBfeA6OSfP2KQrNXt+5AhSsd/vBEBGXpQKUxIeT
+lFGDVfCpVjs2OEfBEmaZ0nf3EkzppTh2ok5nSzvbndmblwy5BjoTHaxuDEVjpbaC
+a11Evkib1tnZnkFIUF8GB70CgYEAh2aKhCoLS7rZSwZDtQpnGyDgLsIA0KDIPTdr
+1zc9Lb80QLlVeB8N4+5kvXB6jezD1TMRrXET2ygxfebmb3jXSFPVZ7/iuTbAs1GS
+n+t/qsZkkgljy5gnQI8oKwCuYQ+GQ30kYwA+W+lc03hEbOfeI9v4Bff64rFRCRda
+7U9mDtUCgYBu6I2MBgVgt/DlbWvogbf01qfsFY3BRR6S7CuLsWkbwrTj3KoOpcoJ
+IXsQjynetV2gpjxm1X18SQqcgF+7VNZi2ghdpYZZb+6fu7fa2lY/p2vTPSVjLUNl
+LEO44LkRCRLcX6E/SAfxDVLezdDEtTSArVIpNNDRWifgB6zc8CFE4Q==
+-----END RSA PRIVATE KEY-----
+EOF;
+
+$publicKey = <<<EOF
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvrHwCs+XlfvG2CAZkgJo
+FJ0XTHmKoCjpZlW8TjmgXmFRKPw8PyrcVvXJM1H2IAw6IyxrbfSy03dCGkTRU7Ra
+pCe4qkkIpnKafb/wXD4UprDOQINVgya5GaHuD7Y3T7jV3I4hnlfs37AQ8oB4L44O
+I17C1sM75O6fqIlOPkXkFthu/KoAbs7pm40jDIjMrdfUgKEMhq/TJ3Nk/4JXQpOo
+yD9jk14XnLLLs6OPonzjEcuOefSSRrsJeGalraadWuBIZmFkGVnaUndjOI55Jmrj
+q/7JdF2zHGnRtmOgYlRBDLZqep8VDjguH5TcrTzAng98q93E22vtJk1yO4F7DeiT
+QwIDAQAB
+-----END PUBLIC KEY-----
+EOF;
+
+$requestParams = [
+    "header" => [
+        "requestTime" => "2019-04-23T19:56:59.444+0800",
+        "service" => "plus",
+        "serviceVersion" => 1.0
+    ],
+    "body" => [
+        "a" => 1,
+        "b" => 2,
+        "time" => "2019-04-23T19:56:59.442+0800"
+    ]
+];
+$requestJson = json_encode($requestParams, JSON_PRESERVE_ZERO_FRACTION);
+
+// https://www.php.net/manual/en/function.openssl-sign.php
+openssl_sign($requestJson, $binarySignature, $privateKey, "sha256WithRSAEncryption");
+
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, 'https://www.bitexpress.io/api/gateway.do');
+curl_setopt($ch, CURLOPT_HEADER, 0);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+curl_setopt($ch, CURLOPT_POST, 1);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+    "uid" => 459,
+    "signature" => bin2hex($binarySignature),
+    "signatureVersion" => 1.0,
+    "content" => $requestJson
+], JSON_PRESERVE_ZERO_FRACTION));
+
+$data = curl_exec($ch);
+curl_close($ch);
+
+var_dump($data);exit;
+    ?>
+```
+
+```python
+#
+import rsa
+import base64
+import binascii
+
+
+#该测试用例基于python3.6.1
+#默认的python环境没有rsa模块需要自主安装 pip install rsa
+#签名的结果是字符型字节流需要转换 binascii.hexlify(signContent)
+
+
+message = '{"header":{"requestTime":"2019-04-23T19:56:59.444+0800",
+"service":"plus","serviceVersion":1.0},"body":{"a":1,"b":2,"time":"2019-04-23T19:56:59.442+0800"}}'
+
+pri = '-----BEGIN RSA PRIVATE KEY-----\n'\
+'MIIEpAIBAAKCAQEAvrHwCs+XlfvG2CAZkgJoFJ0XTHmKoCjpZlW8TjmgXmFRKPw8\n'\
+'PyrcVvXJM1H2IAw6IyxrbfSy03dCGkTRU7RapCe4qkkIpnKafb/wXD4UprDOQINV\n'\
+'gya5GaHuD7Y3T7jV3I4hnlfs37AQ8oB4L44OI17C1sM75O6fqIlOPkXkFthu/KoA\n'\
+'bs7pm40jDIjMrdfUgKEMhq/TJ3Nk/4JXQpOoyD9jk14XnLLLs6OPonzjEcuOefSS\n'\
+'RrsJeGalraadWuBIZmFkGVnaUndjOI55Jmrjq/7JdF2zHGnRtmOgYlRBDLZqep8V\n'\
+'DjguH5TcrTzAng98q93E22vtJk1yO4F7DeiTQwIDAQABAoIBAEoUjwdsINvDrTod\n'\
+'skFODQfhBQGQ/+D7M7ytFtOewGWZ0bEl1/PEH0frAMgekYpepaEvauaS1nufCz9w\n'\
+'N4+Yc1PtGGiSqbkbsVejnmj/Nv+QlPdr7ebevq6uAPD6nR8r02z0jCvaxWsal2LV\n'\
+'tJroySZFdFSBEL39U2niOVKozRRwQJXmD8frmcAwwLLSfM0rnhMmSdSR1KWW3Uyv\n'\
+'Fagc0mtmEGqxinQnqLbhc6ZxVZjT2DYcs8BlnGfjA8kYYhawgUKsCxI7MNoX4xAA\n'\
+'Xo1gxKH1xDiaht+3zRFNKHxIzAqzY6IgR7NUlX0Y4HOOZgBaogQ95sbvXwit+wHb\n'\
+'G8gqMEUCgYEA9HF5z9siAtSpF4KMjVOx3iE8MM/7MBRgWFZQOWrfRNSLwsl3GPhS\n'\
+'ujrojJocKa4xV8ipG1hJ6ZBCYljPX+y8XikCVQfNT/aGsbrIVhV+QG0l8dCtlpn1\n'\
+'84onLqS4rxaaX/4z7XQr17W71Z5n8GtEAxXkpO3UfFSGWHa/HJxMWXcCgYEAx7Xx\n'\
+'AEwMaK/ekjZenG+6P6/1HsXtc5/4+4V4iiey6sJ2Kui98/Yl3sIEHNxLyfQPkTwj\n'\
+'PXwyPdItSSrWrM5G6FUeXcr5WhD2GK8LiY5eoNCbp5tqQND/Nvv0MJvYNa9Yy8qx\n'\
+'rGeNn7lYbSD47Qd0o8DmSUBjtkzePu3eZC67x5UCgYEAw3tECN+bcVwT5YM3V4YJ\n'\
+'BjTZ58dLf4WsDrjn6yL2bhrzsdBfeA6OSfP2KQrNXt+5AhSsd/vBEBGXpQKUxIeT\n'\
+'lFGDVfCpVjs2OEfBEmaZ0nf3EkzppTh2ok5nSzvbndmblwy5BjoTHaxuDEVjpbaC\n'\
+'a11Evkib1tnZnkFIUF8GB70CgYEAh2aKhCoLS7rZSwZDtQpnGyDgLsIA0KDIPTdr\n'\
+'1zc9Lb80QLlVeB8N4+5kvXB6jezD1TMRrXET2ygxfebmb3jXSFPVZ7/iuTbAs1GS\n'\
+'n+t/qsZkkgljy5gnQI8oKwCuYQ+GQ30kYwA+W+lc03hEbOfeI9v4Bff64rFRCRda\n'\
+'7U9mDtUCgYBu6I2MBgVgt/DlbWvogbf01qfsFY3BRR6S7CuLsWkbwrTj3KoOpcoJ\n'\
+'IXsQjynetV2gpjxm1X18SQqcgF+7VNZi2ghdpYZZb+6fu7fa2lY/p2vTPSVjLUNl\n'\
+'LEO44LkRCRLcX6E/SAfxDVLezdDEtTSArVIpNNDRWifgB6zc8CFE4Q==\n'\
+'-----END RSA PRIVATE KEY-----'
+
+
+pub = '-----BEGIN PUBLIC KEY-----\n'\
+'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvrHwCs+XlfvG2CAZkgJo\n'\
+'FJ0XTHmKoCjpZlW8TjmgXmFRKPw8PyrcVvXJM1H2IAw6IyxrbfSy03dCGkTRU7Ra\n'\
+'pCe4qkkIpnKafb/wXD4UprDOQINVgya5GaHuD7Y3T7jV3I4hnlfs37AQ8oB4L44O\n'\
+'I17C1sM75O6fqIlOPkXkFthu/KoAbs7pm40jDIjMrdfUgKEMhq/TJ3Nk/4JXQpOo\n'\
+'yD9jk14XnLLLs6OPonzjEcuOefSSRrsJeGalraadWuBIZmFkGVnaUndjOI55Jmrj\n'\
+'q/7JdF2zHGnRtmOgYlRBDLZqep8VDjguH5TcrTzAng98q93E22vtJk1yO4F7DeiT\n'\
+'QwIDAQAB\n'\
+'-----END PUBLIC KEY-----'
+
+privkey = rsa.PrivateKey.load_pkcs1(pri.encode())
+
+signContent = rsa.sign(message.encode(), privkey, 'SHA-256')
+
+print(binascii.hexlify(signContent))
+
+# verfy
+# rsa.verify(message.encode(), signContent, pubkey)
+#
+```
+
+```more
+I hope you can contribute more language versions to us as a use case, please send to support@bitphare.com
+```
+
+## Response Content Format
+
+```json
+Response:
+{
+"header":{
+"responseTime":"2019-04-24T17:01:01.985+0800","responseCode":"SUCCESS"},
+"body":
+{"message":"aaa","result":3,"time":"2019-04-24T17:01:01.985+0800"}
+}
+```
+
+## Notification received confirmation format
+
+Parameter | Parameter Name | Type（Length）| Description | Required | Demo
+---- | ------ | --------- | -------- | -------- | ------
+success | Whether to receive | boolean | true/false | Required | true
+
+**Retry Times**
+6
+
+**Retry Interval**
+unit：min
+
+sequence：5,10,30,60,60,60
+
+<aside class="notice">
+The notification confirmation format does not use the envelope format, and no checksum is added.
+If we receive a return that is not successful, we will continue to try to issue a callback to you.
+</aside>
+
+```json
+Callback response：
+{"success":true}
+```
+
+# Business Service
+
+## Create Single Acquire Order
+
+Submit the order to the BitExpress payment gateway and get the BitExpress cashier 
+link to show to your users so that the user can complete the payment at the checkout.
+Cashier pays for multiple payment methods include `APP`,`Transfer`,`OTC Fiat payment`
+
+* Service Name
+"service":"createAcquireOrder"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+amount | order amount | BigDecimal(24,8) | Minimum reference to each currency description | Required | 5.0
+name | Goods Name | String(200) | Trade Description | Required | Aaa
+assetCode | AssetCode | String(50) | AssetCode | Required | ETH
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+notifyUrl | notifyUrl | String(200) | Used to receive notification of transaction results | Required | https://yoursite.com/crypto-asset-payment/services/getresponse
+
+* Supported asset code
+<a href='https://www.bitexpress.io/#/rate' target=_blank >Supported asset code</a>
+
+```json
+Example Request body :
+{"outTradeNo":"20190424181332","assetCode":"ETH",
+"amount":1.001,
+"name":"test","notifyUrl":
+"https://yoursite.com/crypto-asset-payment/services/getresponse"}
+
+Example Request content :
+{"header":{"requestTime":"2019-04-24T18:13:32.830+0800",
+"service":"CreateAcquireOrder","serviceVersion":1.0,
+"preserved":null},"body":{"outTradeNo":"20190424181332",
+"assetCode":"ETH","amount":1.001,
+"name":"test","notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse"}}
+```
+
+* Response Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+url | cashier URL | String(200) | cashier URL | Required | https://www.bitexpress.io/cashier/index.html/#/cashier?token=996222ab86ef467e831abe9896e3c089
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-04-25T17:11:12.330+0800","responseCode":"SUCCESS"},"body":
+{"outTradeNo":"20190424181332",
+"url":"https://www.bitexpress.io/cashier/index.html/#/cashier?token=292f5d0e6eac4f6ea9d0bfe2dd551e7e"}}
+```
+
+* Callback
+
+**YES**
+
+The callback notification content and the query result format are the same package
+
+* Business Error Code
+
+Error Code | Description
+------ | --------
+MEMBER_NOT_FOUND | member not found
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+
+## Create Single Fiat Acquire Order
+
+Submit the order to the BitExpress payment gateway with fiat money and get the BitExpress cashier 
+link to show to your users and use `OTC Fiat payment` to pay the order.
+
+* Service Name
+"service":"createFiatAcquireOrder"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190514122649
+assetCode | AssetCode | String(50) | AssetCode | Required | ETH
+fiatAmount | fiat money amount | BigDecimal | fiat money amount | Required | 20
+currency | fiat money name | String(20) | fiat money name,only support CNY now | Required | CNY
+name | Goods Name | String(200) | Trade Description | Required | legal
+email | Refund notify email | String(128) | email address | Required | abcd123@163.com
+language | language type | String(20) | only zh,en | Required | en
+notifyUrl | notifyUrl | String(200) | Used to receive notification of transaction results | Required | https://yoursite.com/services/getresponse
+
+```json
+Example Request body :
+{"outTradeNo":"20190424181332","assetCode":"ETH",
+"fiatAmount":1000,"currency":"CNY",
+"name":"test","email":"xxx@212.com","language":"ENGLISH","notifyUrl":
+"https://yoursite.com/services/getresponse"}
+
+Example Request content :
+{"header":{"requestTime":"2019-04-24T18:13:32.830+0800",
+"service":"createFiatAcquireOrder","serviceVersion":1.0,
+"preserved":null},"body":{"outTradeNo":"20190424181332","assetCode":"ETH",
+"fiatAmount":1000,"currency":"CNY",
+"name":"test","email":"xxx@212.com","language":"ENGLISH","notifyUrl":
+"https://yoursite.com/services/getresponse"}}
+```
+
+* Response Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+url | cashier URL | String(200) | cashier URL | Required | https://www.bitexpress.io/hosting-wallet-website/otcCashier.html#/legalCurrency?token=13257f383ff2433285bf3ba2f76d1415
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-04-25T17:11:12.330+0800","responseCode":"SUCCESS"},"body":
+{"outTradeNo":"20190424181332",
+"url":"https://www.bitexpress.io/hosting-wallet-website/otcCashier.html#/legalCurrency?token=13257f383ff2433285bf3ba2f76d1415"}}
+```
+
+* Callback
+
+**YES**
+
+The callback notification content and the query result format are the same package
+
+* Business Error Code
+
+Error Code | Description
+------ | --------
+MEMBER_NOT_FOUND | member not found
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+ASSET_CODE_UNSUPPORT_OTC | Asset code not support OTC
+CURRENCY_UNSUPPORT_OTC | fiat type not support OTC
+OTC_AMOUNT_VALIDATE_FAILED | OTC amount validate is failed
+
+## Query Single Order
+
+Check the payment status of the order by order number (requestNo)
+
+* Service Name
+"service":"querySingleOrder"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+
+```json
+Example Request body :
+{"header":{"requestTime":"2019-04-24T20:13:18.337+0800",
+"service":"querySingleOrder",
+"serviceVersion":1.0,"preserved":null},"body":{"outTradeNo":"20190424181332"}}
+
+Example Request content :
+{"header":{"requestTime":"2019-04-24T18:13:32.830+0800",
+"service":"querySingleOrder","serviceVersion":1.0,
+"preserved":null},"body":{"header":{"requestTime":"2019-04-24T20:13:18.337+0800",
+"service":"querySingleOrder",
+"serviceVersion":1.0,"preserved":null},"body":{"outTradeNo":"20190424181332"}}}
+```
+
+* Response Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+id | trade order no | String(17) | trade order no | Required | 20190424000041466
+amount | order amount | BigDecimal(24,8) | order amount | Required | 1.001
+realArrivedAmount | Actual arrival amount | BigDecimal(24,8) | Actual arrival amount | Optional |
+interactionMode | interaction method | String(32) | interaction method | Required | CASHIER
+name | Goods Name | String(200) | Goods Name Description | Required | Aaa
+payeeUid | Payee Uid | String(32) | Payee Uid | Required | 459
+status | order status | String(50) | order status | Required | SUCCESS
+assetCode | AssetCode | String(50) | AssetCode | Required | ETH
+expiredTime | Order Expired Time | Date | Order Expired Time | Required | 2019-04-26T05:11:10.376+0800
+createdTime | Order Created Time | Date | Order Created Time | Required | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | lastUpdatedTime | Date | order last Updated Time | Required | 2019-04-26T05:11:10.376+0800
+
+* Status Code
+
+Status Code | Description
+----- | ------
+CREATED | CREATED
+PAID | PAID
+SUCCESS | SUCCESS
+FAILURE | FAILURE
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-04-24T20:06:36.062+0800",
+"responseCode":"SUCCESS"},"body":{"amount":1.001,"interactionMode":"CASHIER",
+"name":"20190424181332-test","payeeUid":"459","status":"CREATED",
+"assetCode":"ETH","createdTime":"2019-04-24T18:13:37.340+0800",
+"lastUpdatedTime":"2019-04-24T19:35:01.444+0800",
+"id":"20190424000041466","expiredTime":"2019-04-25T06:13:35.299+0800"}}
+```
+
+* Business Error Code
+
+Error Code | Description
+----- | ------
+MEMBER_NOT_FOUND | member not found
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+
+## Create a payment transection For Order
+
+To make a payment for the created order, the payer may not be the creator of the order.
+
+* Service Name
+"service":"createPaymentForOrder"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+amount | order amount | BigDecimal(24,8) | Minimum reference to each currency description | Required | 5.0
+assetCode | AssetCode | String(50) | AssetCode | Required | ETH
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+targetOrderId | payment target OrderId | String(200) | payment target OrderId | Required | 20190424102219
+payeeUid | payee uid | String(32) | The original payee uid of the order is used to verify the transaction. | Required | 231
+notifyUrl | notifyUrl | String(200) | Used to receive notification of transaction results | Optional  | https://yoursite.com/crypto-asset-payment/services/getresponse
+
+```json
+Example Request content :
+{"header":{"requestTime":"2019-04-25T21:18:33.911+0800",
+"service":"createPaymentForOrder","serviceVersion":"1.0"},"body":
+{"outTradeNo":"20190425211833","assetCode":"ETH","amount":"3.33","targetOrderId":"20190424102219",
+"payeeUid":"123","notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse"}}
+```
+
+* Response Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+amount | order amount | BigDecimal(24,8) | Minimum reference to each currency description | Required | 5.0
+assetCode | AssetCode | String(50) | AssetCode | Required | ETH
+payerUid | payerUid | String(32) | payerUid | Required | 459
+payeeUid | payee uid | String(32) | The original payee uid of the order is used to verify the transaction. | Required | 231
+targetOrderId | payment target OrderId | String(200) | payment target OrderId | Required | 20190424102219
+status | order status | String(10) | order status | Required | SUCCESS
+createdTime | Order Created Time | Date | Order Created Time | Required | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | lastUpdatedTime | Date | order last Updated Time | Required | 2019-04-26T05:11:10.376+0800
+
+* Status Code
+
+Status Code | Description
+----- | ------
+SUCCESS | SUCCESS
+FAILED | FAILED
+CREATED | CREATED
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-04-25T21:18:54.536+0800",
+"responseCode":"SUCCESS"},"body":{"amount":3.33,"payerUid":"459","payeeUid":"123",
+"targetOrderId":"20190424102219","assetCode":"ETH","status":"SUCCESS",
+"createdTime":"2019-04-25T21:18:48.835+0800","lastUpdatedTime":
+"2019-04-25T21:18:50.472+0800","outTradeNo":"20190425211833"}}
+```
+
+* Callback
+
+**YES**
+
+The callback notification content and the query result format are the same package
+
+* Business Error Code
+
+Error Code | Description
+----- | ------
+DUPLICATE_REQUEST_NO | Duplicate request no
+MEMBER_NOT_FOUND | member not found
+TRADE_AMOUNT_TOO_FEWER | order amount too fewer
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+
+## query Payment For Order
+
+Query the order that was paid for the another created order.
+
+* Service Name
+"service":"queryPaymentForOrder"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+
+```json
+Example Request content :
+{"header":{"requestTime":"2019-04-24T19:13:44.306+0800",
+"service":"queryPayToAddress","serviceVersion":1.0,
+"preserved":null},"body":{"outTradeNo":"20190424141559"}}
+```
+
+* Response Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+amount | order amount | BigDecimal(24,8) | Minimum reference to each currency description | Required | 5.0
+assetCode | AssetCode | String(50) | AssetCode | Required | ETH
+payerUid | payerUid | String(32) | payerUid | Required | 459
+payeeUid | payee uid | String(32) | The original payee uid of the order is used to verify the transaction. | Required | 231
+targetOrderId | payment target OrderId | String(200) | payment target OrderId | Required | 20190424102219
+status | order status | String(10) | order status | Required | SUCCESS
+createdTime | Order Created Time | Date | Order Created Time | Required | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | lastUpdatedTime | Date | order last Updated Time | Required | 2019-04-26T05:11:10.376+0800
+
+* Status Code
+
+Status Code | Description
+----- | ------
+SUCCESS | SUCCESS
+FAILED | FAILED
+CREATED | CREATED
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-04-25T21:18:54.536+0800",
+"responseCode":"SUCCESS"},"body":{"amount":3.33,"payerUid":"459","payeeUid":"123",
+"targetOrderId":"20190424102219","assetCode":"ETH","status":"SUCCESS",
+"createdTime":"2019-04-25T21:18:48.835+0800","lastUpdatedTime":
+"2019-04-25T21:18:50.472+0800","outTradeNo":"20190425211833"}}
+```
+
+* Callback
+
+**YES**
+
+The callback notification content and the query result format are the same package
+
+* Business Error Code
+
+Error Code | Description
+----- | ------
+MEMBER_NOT_FOUND | member not found
+TRADE_AMOUNT_TOO_FEWER | order amount too fewer
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+
+## Transfer To Wallet Address
+
+Payment to digital wallet address
+
+* Service Name
+"service":"payToAddress"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+amount | order amount | BigDecimal(24,8) | Minimum reference to each currency description | Required | 5.05
+assetCode | AssetCode | String(50) | AssetCode | Required | ETH
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+receiveAddress | receiverAddress | String(60) | receiverAddress | Required | 0xf8d6478ee5bbb23e5084fbec67f6c7ad6001d026
+notifyUrl | notifyUrl | String(200) | Used to receive notification of transaction results | Optional | https://yoursite.com/crypto-asset-payment/services/getresponse
+
+```json
+Example Request content :
+{"header":{"requestTime":"2019-04-24T20:09:57.436+0800",
+"service":"payToAddress","serviceVersion":1.0,"preserved":null},
+"body":{"outTradeNo":"20190424141559","assetCode":"ETH",
+"amount":5.05,
+"receiveAddress":"0xf8d6478ee5bbb23e5084fbec67f6c7ad6001d026",
+"notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse"}}
+```
+
+* Response Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+amount | order amount | BigDecimal(24,8) | order amount | Required | 5.05
+fee | payment fee | BigDecimal(24,8) | payment fee | Required | 0.001
+receiverAddress | receiverAddress | String(60) | receiverAddress | Required |0xf8d6478ee5bbb23e5084fbec67f6c7ad6001d026
+payerUid | payerUid | String(40) | payerUid | Required | 459
+status | order status | String(10) | order status | Required | SUCCESS
+assetCode | AssetCode | String(50) | AssetCode | Required | ETH
+createdTime | Order Created Time | Date | Order Created Time | Required | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | lastUpdatedTime | Date | order last Updated Time | Required | 2019-04-26T05:11:10.376+0800
+
+* Status Code
+
+Status Code | Description
+----- | ------
+SUCCESS | SUCCESS
+FAILED | FAILED
+PROCESSING | PROCESSING
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-04-24T20:20:20.030+0800",
+"responseCode":"SUCCESS"},"body":{"outTradeNo":"20190424141559","amount":5.05,"fee":0.001,
+"payerUid":"459","status":"SUCCESS","receiverAddress":"0xf8d6478ee5bbb23e5084fbec67f6c7ad6001d026",
+"assetCode":"ETH","createdTime":"2019-04-24T14:16:02.000+0800",
+"lastUpdatedTime":"2019-04-24T14:22:03.000+0800"}}
+```
+
+* Callback
+
+**YES**
+
+The callback notification content and the query result format are the same package
+
+* Business Error Code
+
+Error Code | Description
+-------- | ---------
+DUPLICATE_REQUEST_NO | Duplicate request no
+MEMBER_NOT_FOUND | member not found
+TRADE_AMOUNT_TOO_FEWER | order amount too fewer
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+
+## Transfer to wallet address order inquiry
+
+Check the order status of the payment to the wallet address
+
+* Service Name
+"service":"queryPayToAddress"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+
+```json
+Example Request content :
+{"header":{"requestTime":"2019-04-24T19:13:44.306+0800",
+"service":"queryPayToAddress","serviceVersion":1.0,
+"preserved":null},"body":{"outTradeNo":"20190424141559"}}
+```
+
+* Response Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+amount | order amount | BigDecimal(24,8) | order amount | Required | 5.05
+fee | payment fee | BigDecimal(24,8) | payment fee | Required | 0.001
+receiverAddress | receiverAddress | String(60) | receiverAddress | Required |0xf8d6478ee5bbb23e5084fbec67f6c7ad6001d026
+payerUid | payerUid | String(40) | payerUid | Required | 459
+status | order status | String(10) | order status | Required | SUCCESS
+assetCode | AssetCode | String(50) | AssetCode | Required | ETH
+createdTime | Order Created Time | Date | Order Created Time | Required | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | lastUpdatedTime | Date | order last Updated Time | Required | 2019-04-26T05:11:10.376+0800
+
+* Status Code
+
+Status Code | Description
+----- | ------
+SUCCESS | SUCCESS
+FAILED | FAILED
+PROCESSING | PROCESSING
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-04-24T20:20:20.030+0800",
+"responseCode":"SUCCESS"},"body":{"outTradeNo":"20190424141559","amount":5.05,"fee":0.001,
+"payerUid":"459","status":"SUCCESS","receiverAddress":"0xf8d6478ee5bbb23e5084fbec67f6c7ad6001d026",
+"assetCode":"ETH","createdTime":"2019-04-24T14:16:02.000+0800",
+"lastUpdatedTime":"2019-04-24T14:22:03.000+0800"}}
+```
+* Business Error Code
+
+Error Code | Description
+---- | -------
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+
+## Transfer to BitExpress account
+
+Transfer to other BitExpress escrow account
+
+* Service Name
+"service":"payToAccount"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+amount | order amount | BigDecimal(24,8) | Minimum reference to each currency description | Required | 5.0
+assetCode | AssetCode | String(50) | AssetCode | Required | ETH
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+receiverMobile | receiverMobile | String(14) | receiverMobile | Required | +8613262958193
+notifyUrl | notifyUrl | String(200) | Used to receive notification of transaction results | Optional  | https://yoursite.com/crypto-asset-payment/services/getresponse
+
+```json
+Example Request content :
+{"header":{"requestTime":"2019-04-25T21:18:33.911+0800",
+"service":"payToAccount","serviceVersion":"1.0"},"body":
+{"outTradeNo":"20190425211833","assetCode":"ETH","amount":"3.33","receiverMobile":"+8613262958193",
+"notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse"}}
+```
+
+* Response Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+amount | order amount | BigDecimal(24,8) | order amount | Required | 3.33
+payerUid | payerUid | String(32) | payerUid | Required | 459
+receiverMobile | receiverMobile | String(14) | receiverMobile | Required | +8613262958193
+status | order status | String(10) | order status | Required | SUCCESS
+assetCode | AssetCode | String(50) | AssetCode | Required | ETH
+createdTime | Order Created Time | Date | Order Created Time | Required | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | lastUpdatedTime | Date | order last Updated Time | Required | 2019-04-26T05:11:10.376+0800
+
+* Status Code
+
+Status Code | Description
+----- | ------
+SUCCESS | SUCCESS
+FAILED | FAILED
+PROCESSING | PROCESSING
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-04-25T21:18:54.536+0800",
+"responseCode":"SUCCESS"},"body":{"amount":3.33,"payerUid":"459",
+"receiverMobile":"+8613262958193","assetCode":"ETH","status":"SUCCESS",
+"createdTime":"2019-04-25T21:18:48.835+0800","lastUpdatedTime":
+"2019-04-25T21:18:50.472+0800","outTradeNo":"20190425211833"}}
+```
+
+* Callback
+
+**YES**
+
+The callback notification content and the query result format are the same package
+
+* Business Error Code
+
+Error Code | Description
+----- | ------
+DUPLICATE_REQUEST_NO | Duplicate request no
+TRADE_AMOUNT_TOO_FEWER | order amount too fewer
+MEMBER_NOT_FOUND | member not found
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+
+## Transfer to escrow account order inquiry
+
+Check the status of the order for transfer to other BitExpress escrow account
+
+* Service Name
+"service":"queryPayToAccount"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+requestNo | requestNo | String(20) | requestNo | Required | 20190424102216
+
+```json
+Example Request content :
+{"header":{"requestTime":"2019-04-24T19:13:44.306+0800",
+"service":"queryPayToAddress","serviceVersion":1.0,
+"preserved":null},"body":{"outTradeNo":"20190424141559"}}
+```
+
+* Response Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+amount | order amount | BigDecimal(24,8) | order amount | Required | 3.33
+payerUid | payerUid | String(32) | payerUid | Required | 459
+receiverMobile | receiverMobile | String(14) | receiverMobile | Required | +8613262958193
+status | order status | String(10) | order status | Required | SUCCESS
+assetCode | AssetCode | String(50) | AssetCode | Required | ETH
+createdTime | Order Created Time | Date | Order Created Time | Required | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | lastUpdatedTime | Date | order last Updated Time | Required | 2019-04-26T05:11:10.376+0800
+
+* Status Code
+
+Status Code | Description
+----- | ------
+SUCCESS | SUCCESS
+FAILED | FAILED
+PROCESSING | PROCESSING
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-04-25T21:18:54.536+0800",
+"responseCode":"SUCCESS"},"body":{"amount":3.33,"payerUid":"459",
+"receiverMobile":"+8613262958193","assetCode":"ETH","status":"SUCCESS",
+"createdTime":"2019-04-25T21:18:48.835+0800","lastUpdatedTime":
+"2019-04-25T21:18:50.472+0800","outTradeNo":"20190425211833"}}
+```
+
+* Business Error Code
+
+Error Code | Description
+----- | ------
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+
+## Query Account Balance
+
+* Service Name
+"service":"queryBalance"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+assetCode | AssetCode | String(50) | AssetCode | Required | ETH
+
+```json
+Example Request content :
+{"header":{"requestTime":"2019-05-14T12:26:49.492+0800","service":"queryBalance",
+"serviceVersion":1.0},"body":{"assetCode":"ETH"}}
+```
+
+* Response Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+assetCode | AssetCode | String(50) | AssetCode | Required | ETH
+totalAmount | Total Amount | BigDecimal(24,8) | total amount of query asset | Required | 6868612467
+availableAmount | Available Amount | BigDecimal(24,8) | Available Amount of query asset | Required | 6868612467
+frozenAmount | Frozen Amount | BigDecimal(24,8) | Frozen Amount of query asset | Required | 0
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-05-14T18:43:30.014+0800",
+"responseCode":"SUCCESS"},"body":{"assetCode":"ETH",
+"totalAmount":6868612467,"availableAmount":6868612467,"frozenAmount":0}}
+```
+
+* Business Error Code
+
+Error Code | Description
+----- | ------
+MEMBER_NOT_FOUND | query uid can not be found
+SYSTEM_ERROR | System Error
+ASSET_CODE_NOT_FOUND | query asset code is unsupport
+
+
+# Response code schedule
+
+The envelope returns the content, the responseCode in the response header in the body structure
+
+Error Code | Description
+----- | ------
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+DUPLICATE_REQUEST_NO | Duplicate request no
+TRADE_AMOUNT_TOO_FEWER | order amount too fewer
+MEMBER_NOT_FOUND | member not found
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+REQUEST_FORMAT_ERROR | request format error
+REQUEST_USER_NOT_FOUND | request user not found
+REQUEST_USER_OPEN_API_DISABLED | Initiating the request user did not open open-api
+VIERIFY_SIGNATURE_FAILURE | Verification failed
+
+
+# HTTP ERROR CODE
+
+If you call our interface and return the following error, 
+then there is a problem with the network or our service. 
+Please pay attention to the announcement, contact us at telegram, 
+wait for the network or service recovery.
+
+Error Code | Meaning
+---------- | -------
+400 | Bad Request -- Your request is invalid.
+403 | Forbidden -- The kitten requested is hidden for administrators only.
+404 | Not Found -- The specified kitten could not be found.
+405 | Method Not Allowed -- You tried to access a kitten with an invalid method.
+406 | Not Acceptable -- You requested a format that isn't json.
+500 | Internal Server Error -- We had a problem with our server. Try again later.
+503 | Service Unavailable -- We're temporarily offline for maintenance. Please try again later.
+
+
+
+
+
+
+
