@@ -6,7 +6,7 @@
 
     <groupId>io.bitexpress.openapi</groupId>
     <artifactId>cap-openapi</artifactId>
-    <version>0.0.3-SNAPSHOT</version>
+    <version>0.1.2-SNAPSHOT</version>
 
     <name>cap openapi</name>
     <description>cap openapi</description>
@@ -91,13 +91,20 @@
     </build>
     <dependencyManagement>
         <dependencies>
-           <dependency>
-				<groupId>com.godmonth</groupId>
-				<artifactId>deps</artifactId>
-				<version>3.4</version>
-				<type>pom</type>
-				<scope>import</scope>
-			</dependency>
+            <dependency>
+                <groupId>com.godmonth</groupId>
+                <artifactId>deps</artifactId>
+                <version>3.4</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.wexmarket.topia.commons</groupId>
+                <artifactId>commons-bom</artifactId>
+                <version>4.2.5</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
     <dependencies>
@@ -108,6 +115,10 @@
         <dependency>
             <groupId>javax.validation</groupId>
             <artifactId>validation-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wexmarket.topia.commons</groupId>
+            <artifactId>commons-rpc</artifactId>
         </dependency>
     </dependencies>
 </project>
