@@ -6,7 +6,7 @@
 
     <groupId>io.bitexpress.openapi</groupId>
     <artifactId>cap-openapi</artifactId>
-    <version>0.2-SNAPSHOT</version>
+    <version>0.3-SNAPSHOT</version>
 
     <name>cap openapi</name>
     <description>cap openapi</description>
