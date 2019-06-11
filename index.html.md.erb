@@ -6,6 +6,8 @@ language_tabs: # must be one of https://git.io/vQNgJ
   - php
   - go
   - python
+  - csharp
+  - java
   - more
 
 
@@ -47,6 +49,10 @@ uid | 接入收款人id，可以从APP或者商户控台我的中找到
 HTTP参数 | POST , http header: Content-Type: application/json , Accept: application/json, application/*+json
 字符集 | UTF-8
 时间格式 | ISO8601 , `yyyy-MM-dd'T'HH:mm:ss.SSSZ`
+
+# 支持的资产代码
+
+目前系统支持的数字货币种类及提现费率，请查看官网 <a href='https://www.bitexpress.io/#/rate' target=_blank >支持的资产代码</a> 页面。
 
 #数据封装形式
 
@@ -345,6 +351,8 @@ openssl_sign($requestJson, $binarySignature, $privateKey, "sha256WithRSAEncrypti
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, 'https://www.bitexpress.io/api/gateway.do');
 curl_setopt($ch, CURLOPT_HEADER, 0);
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($ch, CURLOPT_HTTPHEADER, array("Content-Type: application/json; charset=utf-8"));
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 curl_setopt($ch, CURLOPT_POST, 1);
@@ -427,6 +435,130 @@ print(binascii.hexlify(signContent))
 #
 ```
 
+```csharp
+工程内需要依赖RsaHelper.cs来支持RSA算法
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Net.Security;
+using Newtonsoft.Json;
+using System.Net;
+using System.IO;
+using System.IO.Compression;
+using Newtonsoft.Json.Linq;
+using System.Web.Script.Serialization;
+
+namespace BitExpressDemo
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            string priKey = @"-----BEGIN RSA PRIVATE KEY-----
+            MIIEowIBAAKCAQEAyFoGHP3VTcjh9lRHx2JNv9P+HDW6VDMNlLwCA2bFbSZrY5J3
+            f4lzUBRFL9cX62yfWvkm18FRTIeUK+NIaUL4y1hhd0JsuM65xrn1wipf0lTOdzOz
+            87Y3sav2YWIsGuH8dh8WmCZ0fMfU/TC3/i4a2VdBY34hPqEZ0rryv9zX79lkY9SF
+            jABTsirTAv43f9OjQRIrBH0Zr33zVgbD2ASanIWLyHFePXRr5g49JALh0ShGnnoG
+            1/dQ4vsF+b3KJxy5ZKK0uy6bysabHFmCHoJs5aM1SRvdJlgO6IgRtGfXFael4eFc
+            vy0oHZ+SFk5WFWGuZHCQfBEZJW5pizRYASPT+wIDAQABAoIBAA5/JQ4X98UnEeKG
+            +qKcpE+LAUn9QTwybXsjl2mzl/lr3D1aLbdWtLdIoDDz+VEZjPZCLONTo5RMAxah
+            3W1wYRwlivfcII3Gt35/mh6wfjpz1HSfkxfBSYpbjPpC5joTu/a4DSR5M9iLhQfE
+            7KtBnsO3Io4WZEVp1rp+uG3VhvJdwbWhsUsBj1cZomZo8YCEaY8gaQacyTXrZUdb
+            dEK6NYHNGUL2iRFgFjTqs6IVUL+CKmxeirmqSVLKlhRWr6oBdgVmnEkjdLMwn3t0
+            nrXZeGuZBBFgOGH2aUeUbYOlKgV7/z084XyVmoqnzmDmmUR95bnwx/cKxsA3Rve4
+            AQ7zr5ECgYEA41e7yRc9K4e6q2tbfQP5d0yxS2Axl9ZjizRiQHKfhgPnny8XIfJr
+            5il1GYn1t4ddGLC5txZpFLxz9Dj8AQvgRQ0juSPdqsIqY5ugjGm/RcaydYx35Gzh
+            vrdrwAoET4a0obK8sddbd/PfFz0jqwpCNEnrxfTIwSAldlwRoPt6ZFUCgYEA4ZtM
+            gzGO4U0LViAlmC2T4NTaOaJ4N4aUkMvED7+90fowtTTXlqt/UDyaZ7B1UAijO9QA
+            ftIFRiI2sRGWDppB9aUX4xhbGXzukAj6DrroLCNKKtLCUxYqqpB3EFbISOZnsbxB
+            WU7fcpr+uTeyYQYzjEBjpibS/XyzITvuhdfzJw8CgYEAotvipjeDln9w9gO+Ulxa
+            hV/nUjviywbF4J7yE4EJThPWBW7Sf3sOWJ8yR81QvNy3kExpfgML29L0ret0e7tq
+            OY0kHijXTtAxVZHS/UNzxiSFCzhJWtW1Ec6L3dJPLDkvhPZpvmysFc4Z7qfZuVlr
+            +9FImVK1zcOdkqB58Hy2PNECgYB7854zCnxs7q6G0Dy3gnsX8PpA5jHUl/1yHHIJ
+            ERjSj/pI5NJ6NplJVTKkO4AIy+YbTdxD0VISeWPBH19pgHky5FTecZhDxa8wta3l
+            f+1lqrHqG0em7KvecGbqNDPwUZ6xOTRSRBJiXiQLUT2RLx4NNadKN1R+7w9f+BSR
+            ttciIwKBgCEE5q6P1uhwormvzTHRxFeiuvQszQKLPodw+USGOzZUYverWkZKmpPz
+            8W0lzY7NG/bKCbHeXrjsnsRZbmoUDFbM45yx+h0dSHTpe0M4MAFTTbMubnqo8CYA
+            ptQhci6qbrQNdgHTrAqyCAVklAaSuaCmrljcsTEthIniIIaURjYF
+            -----END RSA PRIVATE KEY-----";
+
+            string pubKey = @"-----BEGIN PUBLIC KEY-----
+            MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuQ69HDFzFxlUVeQJM5Nj
+            JeGAWOmglpFgcwxxF2rZseu6aq8c1oz5wtcQwNTN9OeJEYsmrmSkRrxoLkRBeFSd
+            nJLngQ42Ynnpo6d1TPxI7GcB2VqKEqmhXLTE4HYaa64Rcl9N5+g2uQwAA3uc0OnT
+            z5tYgyrC9ZYX3xNjqfgX2jhNRKo+Feo0ICNcEy8mP60ih3ON+DUuDefv0z3nPQY+
+            Znm+1jIURL7yiBi9bmUamPduDNDs/wxOJkgfIKWFPx75EdOiS+xWewdPF2PczRSB
+            Of5LVOgimEA5Um0TprHe0Zcp1vnsZ6tPsR2fvEM8qdV4LCAc/b8qv3FxNXhtSo9O
+            9wIDAQAB
+            -----END PUBLIC KEY-----";
+
+            priKey = priKey.Replace("-----BEGIN RSA PRIVATE KEY-----", "")
+                .Replace("-----END RSA PRIVATE KEY-----", "");
+            pubKey = pubKey.Replace("-----BEGIN PUBLIC KEY-----", "")
+                .Replace("-----END PUBLIC KEY-----", "");
+
+            RsaHelper rsaHelper = new RsaHelper();
+            Console.OutputEncoding = System.Text.Encoding.Default;
+            string url = "https://www.bitexpress.io/api/gateway.do";
+            JObject dicheader = new JObject();
+            dicheader.Add(new JProperty("requestTime", "2019-04-23T19:56:59.444+0800"));
+            dicheader.Add(new JProperty("service", "plus"));
+            dicheader.Add(new JProperty("serviceVersion", "1.0"));
+            JObject dicBody = new JObject();
+            dicBody.Add(new JProperty("a", "1"));
+            dicBody.Add(new JProperty("b", "2"));
+            dicBody.Add(new JProperty("time", "2019-04-23T19:56:59.442+0800"));
+            JObject dic = new JObject();
+            dic.Add(new JProperty("header", dicheader));
+            dic.Add(new JProperty("body", dicBody));
+            string requestParams = Convert.ToString(dic).Replace("\n", "").Replace(" ", "").Replace("\t", "").Replace("\r", "").Replace("\\", "");
+            Console.WriteLine("签名参数是：");
+            Console.WriteLine(requestParams);
+            string signature = rsaHelper.Sign(requestParams, priKey);
+            Console.WriteLine("算出来的结果是：");
+            Console.WriteLine(signature);
+            Dictionary<string, string> dicContent=new Dictionary<string,string>();
+            dicContent.Add("uid", "437");
+            dicContent.Add("signature", signature);
+            dicContent.Add("signatureVersion", "1.0");
+            dicContent.Add("content", requestParams);
+
+            HttpWebRequest request = null;
+            request = WebRequest.Create(url) as HttpWebRequest;
+            request.ProtocolVersion = HttpVersion.Version10;
+            request.Method = "POST";
+            request.ContentType = "application/json; charset=utf-8";
+            //request.ContentType = "application/x-www-form-urlencoded; charset=utf-8";
+            string contentJson = JsonConvert.SerializeObject(dicContent, Formatting.Indented);
+            Console.WriteLine("开始推送到网关数据：");
+            Console.WriteLine(contentJson);
+            byte[] data = Encoding.GetEncoding("utf-8").GetBytes(contentJson);
+            using (Stream stream = request.GetRequestStream())
+            {
+                stream.Write(data, 0, data.Length);
+            }
+
+            HttpWebResponse response = request.GetResponse() as HttpWebResponse;
+            //打印返回值  
+            Stream repStream = response.GetResponseStream();   //获取响应的字符串流  
+            StreamReader sr = new StreamReader(repStream); //创建一个stream读取流  
+            string html = sr.ReadToEnd();   //从头读到尾，放到字符串html  
+            Console.Write("获取到网关返回信息：");
+            Console.WriteLine(html);
+            Console.Write("按任意键退出");
+            Console.ReadKey(true);
+        }
+    }
+}
+
+```
+
+```java
+你可以下载在后面的链接地址下载最新的JAVA SDK 来进行对接 https://github.com/DistributedBanking/BEPG
+```
+
 ```more
 希望您贡献更多语言版本给我们作为用例，请发送至support@bitphare.com
 ```
@@ -443,6 +575,26 @@ print(binascii.hexlify(signContent))
 }
 ```
 
+## 回调通知的数据封装
+
+与商户请求数据封装信封采用相同方式封装，信件接收方通过签名后再自行解码内容。
+
+```json
+回调通知格式：
+{"uid":459,"signature":"d739b3251d32b170d3cddaa5fb4aebf1ef8af7b81a7cfada39a3ff6a2a9bf67ca83af
+7bcba5b9ca8663c343bd9bc69b9020283f424418499852f512917e9a79c58752239f3d2604ddc064865769
+0fba508424358e97aba4450b420bb989a2152ae9b39e3f3b8490a5787e192490b3a5639938759082b035826843
+22a251f1d4032379cf681e37f0e739cb59fa35fad03ca1b3353ccec0cfc91ff8f3639b1145e6b9d0ac4d51c44e
+fdb984fc99158859dcbca5cc1797aaeeaa497a123a4770dbb7498d3f96e0b8e35bcc1368a89ba708b972efadc
+2298ad04d0fbd7581083ab8c53ca29897b0c5977820ae02d5514029ebfb86e0bbc355efe6fe46f64bc6d831c"
+,"signatureVersion":1.0,"content":"{\"header\":{\"requestTime\":\"2019-05-24T20:32:00.040+0800\"
+,\"service\":\"createAcquireOrder\",\"serviceVersion\":1.0},\"body\":{\"amount\":1.001,
+\"realArrivedAmount\":0.99099,\"interactionMode\":\"CASHIER\",\"name\":\"20190524000000228-test\",
+\"payeeUid\":\"459\",\"status\":\"SUCCESS\",\"assetCode\":\"USDT_ERC20\",
+\"createdTime\":\"2019-05-24T20:16:23.118+0800\",\"lastUpdatedTime\":
+\"2019-05-24T20:29:57.326+0800\",\"id\":\"20190524000084223\",\"outTradeNo\":\"xth851765920kakak\",
+\"expiredTime\":\"2019-05-25T08:16:23.142+0800\"}}"}
+```
 
 ## 通知收到确认格式
 
@@ -466,6 +618,39 @@ success | 是否成功 | boolean | true/false | 非空 | true
 ```json
 接收回调响应：
 {"success":true}
+```
+
+```php
+<?php
+$publicKey = <<<EOF
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApEd81p+JqzbLcyYiuhee
+drKbreyOR4D4obs8Of3fIk/+QVgkCQO3vA90FC14CI7miMkD0W5RLsHIx7KfqDJ4
+gIFHWznksW/sQWDiDiQTfoAnLjOYP3Qeg4j9LprhYuD3cSJ8Izd9uwRkomQo+d1v
+bXzNobf56Oj534N/dtsPlKFzbhUF3YAk+901wuCE3wr/3SC6pdFvGgrm6xQaNX6q
+uwu3nLMBDsX59AlvrrrTF0RQ8MunF/HWiW7YNSY5cEevPGmardyk9YHFFYFqXXgM
+wZighBZzRBcYm0OR3lD8iETIwl7a/4aLCZiat70t0Gbg50GiKc1zAnPV4SS+joPy
+bwIDAQAB
+-----END PUBLIC KEY-----
+EOF;
+
+$content = file_get_contents("php://input");
+
+$decoded = json_decode($content, true);
+
+$ok = openssl_verify($decoded["content"], hex2bin($decoded["signature"]), $publicKey, "sha256WithRSAEncryption");
+
+if ($ok == 1) {
+ $decodedContent = json_decode($decoded["content"], true);
+ if (strcmp($decodedContent["body"]["status"],"SUCCESS") == 0){
+ /*业务逻辑*/
+ }
+}else if ($ok == 0){
+ echo "wrong";
+}else{
+ echo "fail";
+}
+?>
 ```
 
 # 业务服务
@@ -546,7 +731,7 @@ SYSTEM_ERROR | 系统错误
 参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
 -------- | -------- | ---------------- | ------------------------- | ------- | ------------------
 outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190514122649
-assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | USDT_ERC20
 fiatAmount | 法币支付金额 | BigDecimal | 法币金额 | 非空 | 20
 currency | 法币币种 | String(20) | 法币币种,目前仅支持CNY | 非空 | CNY
 name | 商品名称 | String(200) | 交易描述 | 非空 | legal
@@ -554,9 +739,13 @@ email | 退款邮箱地址 | String(128) | 邮箱地址 | 非空 | abcd123@163.c
 language | 语言信息 | String(20) | 目前仅支持zh和en | 非空 | zh
 notifyUrl | 通知地址 | String(200) | 交易结果通知地址 | 非空 | https://yoursite.com/services/getresponse
 
+<aside class="notice">
+目前assetCode仅支持USDT_ERC20，其他币种法币OTC兑换商会陆续上线。
+</aside>
+
 ```json
 请求体样例：
-{"outTradeNo":"20190424181332","assetCode":"ETH",
+{"outTradeNo":"20190424181332","assetCode":"USDT_ERC20",
 "fiatAmount":1000,"currency":"CNY",
 "name":"test","email":"xxx@212.com","language":"ENGLISH","notifyUrl":
 "https://yoursite.com/services/getresponse"}
@@ -564,7 +753,7 @@ notifyUrl | 通知地址 | String(200) | 交易结果通知地址 | 非空 | htt
 请求内容样例
 {"header":{"requestTime":"2019-04-24T18:13:32.830+0800",
 "service":"createFiatAcquireOrder","serviceVersion":1.0,
-"preserved":null},"body":{"outTradeNo":"20190424181332","assetCode":"ETH",
+"preserved":null},"body":{"outTradeNo":"20190424181332","assetCode":"USDT_ERC20",
 "fiatAmount":1000,"currency":"CNY",
 "name":"test","email":"xxx@212.com","language":"ENGLISH","notifyUrl":
 "https://yoursite.com/services/getresponse"}}
@@ -806,6 +995,445 @@ FAILURE | 失败
 TRADE_ERROR | 交易异常
 SYSTEM_ERROR | 系统错误
 
+
+## 浮动资产额度出款货币
+
+提交确定法币金额进行法币提现，系统会自动计算对应数字货币金额并且在OTC市场进行卖出。
+
+* 服务名
+"service":"fiatFundoutFloatAsset"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190605135539
+assetCode | 资产代码  | String(50) | 资产代码名称 | 非空 | USDT_ERC20
+currencyCode | 货币代码 | String(50) | 货币代码 | 非空 | CNY
+currencyAmount | 货币金额 | BigDecimal(24,8) | 货币金额 | 非空 | 30.00
+notifyUrl | 通知地址 | String(200) | 交易结果通知地址 | 可空 | https://yoursite.com/crypto-asset-payment/services/getresponse
+receiverParam | 付款信息 | json | 付款信息 | 非空 | `{"bankCode":"招商银行","accountName":"李四","accountType":"2","accountNo":"zhangdan44","branch":"XX路支行"}`
+
+* receiverParam
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+accountType | 收款人账户类型 | String(10) | 2：支付宝，3，银行卡 | 非空 | 2
+accountNo | 收款人账号 | String(200) | 收款人账号 | 非空 | zhangdan44
+accountName | 收款人姓名 | String(50) | 收款人姓名 |  非空 | 李四
+bank | 银行代码 | String(20) | 银行代码 | 可空 | 招商银行
+branch | 分支行代码 | String(20) | 分支行代码 | 可空 | XX路支行
+
+<aside class="notice">
+目前assetCode仅支持USDT_ERC20，其他币种法币OTC兑换商会陆续上线。
+</aside>
+
+```json
+请求体样例：
+{"outTradeNo":"20190606121604","assetCode":"USDT_ERC20","currencyCode":"CNY","currencyAmount":30,
+"notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse",
+"receiverParam":{"bankCode":"招商银行","accountName":"李四",
+"accountType":"2","accountNo":"zhangdan44","branch":"XX路支行"}}
+
+请求内容样例
+{"header":{"requestTime":"2019-06-06T12:16:04.785+0800","service":"fiatFundoutFloatAsset","serviceVersion":1.0},
+"body":{"outTradeNo":"20190606121604","assetCode":"USDT_ERC20","currencyCode":"CNY","currencyAmount":30,
+"notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse",
+"receiverParam":{"bankCode":"招商银行","accountName":"李四",
+"accountType":"2","accountNo":"zhangdan44","branch":"XX路支行"}}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+id | 订单编号 | String(17) | 订单编号 | 非空 | 20190424000041466
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | USDT_ERC20
+assetAmount | 资产金额 | BigDecimal(24,8) | 资产金额 | 非空 | 5.0
+currencyCode | 货币代码 | String(50) | 货币代码 | 非空 | CNY
+currencyAmount | 货币金额  | BigDecimal(24,8) | 货币金额 | 非空 | 231
+brokerOrderId | 承兑商订单号 | string(100) | 承兑商订单号 | 可空 | 2131039-90-90sda-f90-a8f9810293
+deliveryMemo | 出款备注 | String(200) | 出款备注 | 非空 | XXX出款，账户XXXXX   
+status | 订单状态 | String(10) | 订单状态标识 | 非空 | SUCCESS
+payerUid | 付款方会员号 | String(32) | 付款方会员号 | 非空 | 459 
+createdTime | 创建时间 | Date | 下单时间 | 非空 | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | 最后更新时间 | Date | 订单最后更新时间 | 非空 | 2019-04-26T05:11:10.376+0800
+
+* status取值表
+
+状态码 | 描述
+----- | ------
+CREATED | 已创建
+SUCCESS | 成功
+FAILURE | 失败
+COLLECTED | 已代收
+PLACED | 已下单
+REJECTED | 已拒绝
+DISPOSED | 已处置
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-06-06T14:26:12.667+0800","responseCode":"SUCCESS"},
+"body":{"id":"20190606000045377","assetCode":"USDT_ERC20","assetAmount":4.285714,
+"currencyAmount":30,"currencyCode":"CNY","deliveryMemo":"abc","payerUid":"490",
+"status":"REQUESTED","createdTime":"2019-06-06T14:26:09.027+0800","lastUpdatedTime":
+"2019-06-06T14:26:12.008+0800","outTradeNo":"20190606142607","brokerOrderId":"20190606102001"}}
+```
+
+* 是否有回调通知
+
+有
+
+```json
+通知样本：
+{"uid":598,"signature":"1aee7a201695255945ae3a53b38462332ee930277995c4dfbb0fcd0a6
+1bc032fb39e597f09be08152054c6aa3d114d4f00103b838477325cf5a309cba7cc8ccffe15e35a5b
+ed8099df1c82118641dcf2d0bc4ee2c232a38f4731e46e1ad46d2abfb025fb47db39372352d75a48c
+e5e93a83b34b78502169b9d0e35cef55714cfb2018c413f1dcad3584a197d9c982904bd26898714b1
+b85f34e4e03553dd1bdd79bdbdcdf3f9a6290c91718a1da1a9fdc162f542eddae408485eb185a7f3
+fb1b63d2110cade7edcb5d8e8b548d4a8991b3b4249654aed14ba1afead9511c99acea4595625b512
+5483e8b800853444d9b1be185b0cb44e7fda9aaa01f9b10ddea","signatureVersion":1.0,
+"content":"{"header":{"requestTime":"2019-06-06T15:49:43.222+0800","service":
+"floatAssetFundout","serviceVersion":1.0},"body":{"id":"20190606000045398","assetCode":
+"USDT_ERC20","assetAmount":14.285714,"currencyAmount":100,"currencyCode":"CNY","payerUid"
+:"598","status":"SUCCESS","createdTime":"2019-06-06T15:48:09.099+0800",
+"lastUpdatedTime":"2019-06-06T15:49:42.949+0800","outTradeNo":"1559807287407"}}"}
+```
+回调通知内容和查询结果格式封装相同
+
+* 错误码
+
+错误码 | 描述
+------ | --------
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+ASSET_CODE_UNSUPPORT_OTC | 资产代码不支持OTC
+CURRENCY_UNSUPPORT_OTC | 该币种不支持OTC
+ASSET_CODE_NOT_FOUND | 资产代码未找到
+
+## 浮动法币额度出款货币
+
+提交确定数字货币金额进行法币提现，系统会自动将数字货币在OTC市场进行卖出并将对应法币金额转账到收款地址。
+
+* 服务名
+"service":"fiatFundoutFloatCurrency"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190605135539
+assetCode | 资产代码  | String(50) | 资产代码名称 | 非空 | USDT_ERC20
+assetAmount | 资产金额 | BigDecimal(24,8) | 资产金额 | 非空 | 30.00
+currencyCode | 货币代码 | String(50) | 货币代码 | 非空 | CNY
+notifyUrl | 通知地址 | String(200) | 交易结果通知地址 | 可空 | https://yoursite.com/crypto-asset-payment/services/getresponse
+receiverParam | 付款信息 | json | 付款信息 | 非空 | `{"bankCode":"招商银行","accountName":"李四","accountType":"2","accountNo":"zhangdan44","branch":"XX路支行"}`
+
+* receiverParam
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+accountType | 收款人账户类型 | String(10) | 2：支付宝，3，银行卡 | 非空 | 2
+accountNo | 收款人账号 | String(200) | 收款人账号 | 非空 | zhangdan44
+accountName | 收款人姓名 | String(50) | 收款人姓名 |  非空 | 李四
+bank | 银行代码 | String(20) | 银行代码 | 可空 | 招商银行
+branch | 分支行代码 | String(20) | 分支行代码 | 可空 | XX路支行
+
+<aside class="notice">
+目前assetCode仅支持USDT_ERC20，其他币种法币OTC兑换商会陆续上线。
+</aside>
+
+```json
+请求体样例：
+{"outTradeNo":"20190606121604","assetCode":"USDT_ERC20","currencyCode":"CNY","assetAmount":30,
+"notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse",
+"receiverParam":{"bankCode":"招商银行","accountName":"李四",
+"accountType":"2","accountNo":"zhangdan44","branch":"XX路支行"}}
+
+请求内容样例
+{"header":{"requestTime":"2019-06-06T12:16:04.785+0800","service":"fiatFundoutFloatCurrency","serviceVersion":1.0},
+"body":{"outTradeNo":"20190606121604","assetCode":"USDT_ERC20","currencyCode":"CNY","assetAmount":30,
+"notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse",
+"receiverParam":{"bankCode":"招商银行","accountName":"李四",
+"accountType":"2","accountNo":"zhangdan44","branch":"XX路支行"}}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+id | 订单编号 | String(17) | 订单编号 | 非空 | 20190424000041466
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | USDT_ERC20
+assetAmount | 资产金额 | BigDecimal(24,8) | 资产金额 | 非空 | 5.0
+currencyCode | 货币代码 | String(50) | 货币代码 | 非空 | CNY
+currencyAmount | 货币金额  | BigDecimal(24,8) | 货币金额 | 非空 | 231
+brokerOrderId | 承兑商订单号 | string(100) | 承兑商订单号 | 可空 | 2131039-90-90sda-f90-a8f9810293
+deliveryMemo | 出款备注 | String(200) | 出款备注 | 非空 | XXX出款，账户XXXXX   
+status | 订单状态 | String(10) | 订单状态标识 | 非空 | SUCCESS
+payerUid | 付款方会员号 | String(32) | 付款方会员号 | 非空 | 459 
+createdTime | 创建时间 | Date | 下单时间 | 非空 | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | 最后更新时间 | Date | 订单最后更新时间 | 非空 | 2019-04-26T05:11:10.376+0800
+
+* status取值表
+
+状态码 | 描述
+----- | ------
+CREATED | 已创建
+SUCCESS | 成功
+FAILURE | 失败
+COLLECTED | 已代收
+PLACED | 已下单
+REJECTED | 已拒绝
+DISPOSED | 已处置
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-06-06T15:25:49.410+0800","responseCode":"SUCCESS"},
+"body":{"id":"20190606000045390","assetCode":"USDT_ERC20","assetAmount":10,
+"currencyAmount":0,"currencyCode":"CNY","payerUid":"490","status":"PLACED",
+"createdTime":"2019-06-06T15:25:47.026+0800","lastUpdatedTime":
+"2019-06-06T15:25:48.218+0800","outTradeNo":"20190606152544"}}
+```
+
+* 是否有回调通知
+
+有
+
+```json
+{"uid":598,"signature":"54db629d1e375a080c73940b8165e53d7ec67b1bcef78a5f97
+2f0de7926b7bbec5e49daae8f3444d4a0dda27b23ef2f983c26468dd30bfa2ad50e50bf962
+31ec4aecd4bf43f3c17fd922036bfb3c09e2e0321068466edf84e4c0fdb71bfdb1cabc5f89
+be12227288701b32aef2e7eeaf889980154428e030641e091045a71ab62044af7f24271838
+4a02b7dab70723afb5a92523f685182315e047cbcd2fc50f7e7b6c7c333982e686647dc077
+7a4db68b049eb120e63930db593e5de83a97d4fe4033c17a9e9a3431fd3f9ffb92b8b5d02a
+145c8e2e5a509af1e8f73bd03f718ecb3e83b0c7dcaf7a5bfc5580eec96e98fcc297890048
+c796561b9963b085ad","signatureVersion":1.0,"content":"{"header":{"requestTime":
+"2019-06-06T15:51:36.671+0800","service":"floatCurrencyOtcFundout","serviceVersion":1.0},
+"body":{"id":"20190606000045399","assetCode":"USDT_ERC20","assetAmount":100,
+"currencyAmount":10,"currencyCode":"CNY","payerUid":"598","status":"SUCCESS",
+"createdTime":"2019-06-06T15:50:31.393+0800","lastUpdatedTime":
+"2019-06-06T15:51:36.406+0800","outTradeNo":"1559807028551"}}"}
+```
+
+回调通知内容和查询结果格式封装相同
+
+* 错误码
+
+错误码 | 描述
+------ | --------
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+ASSET_CODE_UNSUPPORT_OTC | 资产代码不支持OTC
+CURRENCY_UNSUPPORT_OTC | 该币种不支持OTC
+ASSET_CODE_NOT_FOUND | 资产代码未找到
+
+## 单笔交易查询
+
+通过订单号（requestNo）查询订单的支付状态
+
+* 服务名
+"service":"queryFiatFundout"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+
+```json
+请求体样例：
+{"outTradeNo":"20190424181332"}
+
+请求内容样例
+{"header":{"requestTime":"2019-04-24T18:13:32.830+0800",
+"service":"queryFiatFundout","serviceVersion":1.0,
+"preserved":null},body":{"outTradeNo":"20190424181332"}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
+id | 订单编号 | String(17) | 订单编号 | 非空 | 20190424000041466
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | USDT_ERC20
+assetAmount | 资产金额 | BigDecimal(24,8) | 资产金额 | 非空 | 5.0
+currencyCode | 货币代码 | String(50) | 货币代码 | 非空 | CNY
+currencyAmount | 货币金额  | BigDecimal(24,8) | 货币金额 | 非空 | 231
+brokerOrderId | 承兑商订单号 | string(100) | 承兑商订单号 | 可空 | 2131039-90-90sda-f90-a8f9810293
+deliveryMemo | 出款备注 | String(200) | 出款备注 | 非空 | XXX出款，账户XXXXX   
+status | 订单状态 | String(10) | 订单状态标识 | 非空 | SUCCESS
+payerUid | 付款方会员号 | String(32) | 付款方会员号 | 非空 | 459 
+createdTime | 创建时间 | Date | 下单时间 | 非空 | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | 最后更新时间 | Date | 订单最后更新时间 | 非空 | 2019-04-26T05:11:10.376+0800
+
+* status取值表
+
+状态码 | 描述
+----- | ------
+CREATED | 已创建
+SUCCESS | 成功
+FAILURE | 失败
+COLLECTED | 已代收
+PLACED | 已下单
+REJECTED | 已拒绝
+DISPOSED | 已处置
+
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-06-06T15:25:49.410+0800","responseCode":"SUCCESS"},
+"body":{"id":"20190606000045390","assetCode":"USDT_ERC20","assetAmount":10,
+"currencyAmount":0,"currencyCode":"CNY","payerUid":"490","status":"PLACED",
+"createdTime":"2019-06-06T15:25:47.026+0800","lastUpdatedTime":
+"2019-06-06T15:25:48.218+0800","outTradeNo":"20190606152544"}}
+```
+
+* 错误码
+
+错误码 | 描述
+----- | ------
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+
+## 创建OTC法币出款资产处置订单
+
+OTC合作伙伴使用，OTC调用该接口完成OTC订单的数字货币结算，回报法币出款结果。
+
+* 服务名
+"service":"createFiatFundoutAssetDisposition"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+targetOrderId | 出款订单号 | String(32) | 出款订单号 | 非空 | 20190605101416
+assetDisposition | 资产处置 | BigDecimal(24,8) | RECEIVE/REFUND(不可空),当RECEIVE时代付到otc承兑商，当REFUND时退款给出款方 | 非空 | RECEIVE
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | USDT_ERC20
+assetAmount | 资产金额 | BigDecimal(24,8) | 资产金额 | 非空 | 5.0
+deliveryMemo | 出款备注 | String(200) | 出款备注 | 非空   
+
+```json
+请求体样例：
+{"targetOrderId":"20190605141200","assetDisposition":"RECEIVE","assetCode":"ETH",
+"assetAmount":10,"deliveryMemo":"test asset disposition"}
+
+请求内容样例
+{"header":{"requestTime":"2019-06-05T14:13:05.570+0800","service":"createOtcFundoutAssetDisposition",
+"serviceVersion":1.0},"body":{"targetOrderId":"20190605141200","assetDisposition":"RECEIVE",
+"assetCode":"ETH","assetAmount":10,"deliveryMemo":"test asset disposition"}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+targetOrderId | 出款订单号 | String(32) | 出款订单号 | 非空 | 20190605101416
+assetAmount | 资产金额 | BigDecimal(24,8) 资产金额 | 非空 | 5.0
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+assetDisposition | 资产处置 | BigDecimal(24,8) | RECEIVE/REFUND(不可空),当RECEIVE时代付到otc承兑商，当REFUND时退款给出款方 | 非空 | RECEIVE
+status | 订单状态  | String(10) | 处置状态 | 非空 | SUCCESS
+deliveryMemo | 出款备注 | String(200) | 出款备注 | 非空   
+createdTime | 创建时间 | Date | 下单时间 | 非空 | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | 最后更新时间 | Date | 订单最后更新时间 | 非空 | 2019-04-26T05:11:10.376+0800
+
+* status取值表
+
+状态码 | 描述
+----- | ------
+DISPOSED | 表示已收到请求，等待处置资产
+SUCCESS | 成功，已结算
+FAILURE | 已退还，订单失败
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-06-06T15:29:50.585+0800","responseCode":"SUCCESS"},
+"body":{"targetOrderId":"20190606000045390","assetDisposition":"RECEIVE","assetCode"
+:"USDT_ERC20","assetAmount":10,"status":"SUCCESS","deliveryMemo":"test asset disposition",
+"createdTime":"2019-06-06T15:25:47.026+0800","lastUpdatedTime":"2019-06-06T15:29:49.708+0800"}}
+```
+
+* 是否有回调通知
+
+无，同步接口，幂等可重试
+
+
+* 错误码
+
+错误码 | 描述
+------ | --------
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+ORDER_NOT_FOUND | 订单未找到
+ORDER_INFO_INCONSISTENCY | 信息不一致
+
+## 查询OTC法币出款资产处置订单
+
+查询OTC调用该接口完成OTC订单的数字货币结算，回报法币出款结果。
+
+* 服务名
+"service":"queryFiatFundoutAssetDisposition"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+targetOrderId | 出款订单号 | String(32) | 出款订单号 | 非空 | 20190605101416
+
+```json
+请求体样例：
+{"targetOrderId":"20190606000045379"}
+
+请求内容样例
+{"header":{"requestTime":"2019-06-05T14:22:44.316+0800","service":
+"queryOtcFundoutAssetDisposition","serviceVersion":1.0},"body":{"targetOrderId":"20190606000045379"}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+targetOrderId | 出款订单号 | String(32) | 出款订单号 | 非空 | 20190605101416
+assetAmount | 资产金额 | BigDecimal(24,8) 资产金额 | 非空 | 5.0
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
+assetDisposition | 资产处置 | BigDecimal(24,8) | RECEIVE/REFUND(不可空),当RECEIVE时代付到otc承兑商，当REFUND时退款给出款方 | 非空 | RECEIVE
+status | 订单状态  | String(10) | 处置状态 | 非空 | SUCCESS
+deliveryMemo | 出款备注 | String(200) | 出款备注 | 非空   
+createdTime | 创建时间 | Date | 下单时间 | 非空 | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | 最后更新时间 | Date | 订单最后更新时间 | 非空 | 2019-04-26T05:11:10.376+0800
+
+* status取值表
+
+状态码 | 描述
+----- | ------
+DISPOSED | 表示已收到请求，等待处置资产
+SUCCESS | 成功，已结算
+FAILURE | 已退还，订单失败
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-06-06T15:29:50.585+0800","responseCode":"SUCCESS"},
+"body":{"targetOrderId":"20190606000045390","assetDisposition":"RECEIVE","assetCode"
+:"USDT_ERC20","assetAmount":10,"status":"SUCCESS","deliveryMemo":"test asset disposition",
+"createdTime":"2019-06-06T15:25:47.026+0800","lastUpdatedTime":"2019-06-06T15:29:49.708+0800"}}
+```
+
+* 错误码
+
+错误码 | 描述
+------ | --------
+TRADE_ERROR | 交易异常
+SYSTEM_ERROR | 系统错误
+ORDER_NOT_FOUND | 订单未找到
+ORDER_INFO_INCONSISTENCY | 信息不一致
+
 ## 付款到钱包地址
 
 托管钱包付款到数字钱包地址
@@ -823,6 +1451,9 @@ assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
 outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
 receiveAddress | 收款地址 | String(60) | 收款方钱包地址 | 非空 | 0xf8d6478ee5bbb23e5084fbec67f6c7ad6001d026
 notifyUrl | 通知地址 | String(200) | 交易结果通知地址 | 可空 | https://yoursite.com/crypto-asset-payment/services/getresponse
+
+* 支持的资产代码
+<a href='https://www.bitexpress.io/#/rate' target=_blank >支持的资产代码</a>
 
 ```json
 请求内容样例
@@ -956,6 +1587,9 @@ assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | ETH
 outTradeNo | 商户订单号 | String(200) | 商户订单号 | 非空 | 20190424102216
 receiverMobile | 收款方手机号码 | String(14) | 收款方会员手机号码 | 非空 | +8613262958193
 notifyUrl | 通知地址 | String(200) | 交易结果通知地址 | 可空  | https://yoursite.com/crypto-asset-payment/services/getresponse
+
+* 支持的资产代码
+<a href='https://www.bitexpress.io/#/rate' target=_blank >支持的资产代码</a>
 
 ```json
 请求内容样例
@@ -1110,6 +1744,64 @@ MEMBER_NOT_FOUND | 未找到会员信息
 SYSTEM_ERROR | 系统错误
 ASSET_CODE_NOT_FOUND | 资产代码未找到
 
+
+## OTC汇率查询
+
+查询OTC买/卖汇率。
+
+* 服务名
+"service":"queryOtcQuote"
+* 版本
+"serviceVersion":1.0
+* 请求体格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空  | USDT_ERC20
+currencyCode | 货币代码 | String(50) | 货币代码名称 | 非空 | CNY
+direction | 兑换方向 | String(10) | BUY表示买USDT,SELL表示卖USDT | 非空 | BUY
+
+```json
+请求内容样例
+{"header":{"requestTime":"2019-05-29T12:57:30.618+0800",
+"service":"queryDirectionQuote","serviceVersion":1.0},"body":{"assetCode":"USDT_ERC20",
+"currencyCode":"CNY","direction":"BUY"}}
+```
+
+* 响应格式
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+direction | 兑换方向 | String(10) | BUY表示买USDT,SELL表示卖USDT | 非空 | BUY
+rate | 汇率 | BigDecimal(24,8) | 汇率 | 非空 | 7.03
+fee | 费用 | BigDecimal(24,8) | 费用 | 非空 | 0
+assetCode | 资产代码 | String(50) | 资产代码名称 | 非空 | USDT_ERC20
+assetDigit | 资产精度 | int 资产精度 | 非空 | 6
+currencyCode | 货币代码 | String(50) | 货币代码 | 非空 | CNY
+currencyDigit | 货币精度 | int | 货币精度 | 非空 | 2 
+maxCurrencyAmount | 最大货币金额 | BigDecimal(24,8) | 最大货币金额 | 非空 | 5000.00
+minCurrencyAmount | 最小货币金额 | BigDecimal(24,8) | 最小货币金额 | 非空 | 10.00
+maxAssetAmount | 最大资产金额 | BigDecimal(24,8) | 最大资产金额 | 非空 | 711.237553
+minAssetAmount | 最小资产金额 | BigDecimal(24,8) | 最小资产金额 | 非空 | 1.422475
+
+
+```json
+响应样例：
+{"header":{"responseTime":"2019-05-29T12:57:35.177+0800","responseCode":
+"SUCCESS"},"body": {"direction":"TO_ASSET","rate":7.03,"fee":0,"assetCode":
+"USDT_ERC20","assetDigit":6,"currencyCode":"CNY","currencyDigit":2,
+"maxCurrencyAmount":1000.00,"minCurrencyAmount":20.00,"maxAssetAmount"
+:142.247510,"minAssetAmount":2.844950}}
+```
+
+* 错误码
+
+错误码 | 描述
+----- | ------
+ASSET_CODE_NOT_FOUND | 资产代码未找到
+ASSET_CODE_UNSUPPORT_OTC | 资产代码不支持OTC
+SYSTEM_ERROR | 系统错误
+
 # 响应代码附表
 
 信封返回内容中，内容结构体内的响应头中的responseCode
@@ -1127,7 +1819,6 @@ REQUEST_FORMAT_ERROR | 请求格式错误
 REQUEST_USER_NOT_FOUND | 发起请求用户未找到
 REQUEST_USER_OPEN_API_DISABLED | 发起请求用户未开启open-api
 VIERIFY_SIGNATURE_FAILURE | 验签失败
-
 
 # HTTP响应错误码
 
