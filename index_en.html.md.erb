@@ -6,6 +6,8 @@ language_tabs: # must be one of https://git.io/vQNgJ
   - php
   - go
   - python
+  - csharp
+  - java
   - more
 
 
@@ -44,6 +46,11 @@ API URL | https://www.bitexpress.io/api/gateway.do
 HTTP parameter | POST , http header: Content-Type: application/json , Accept: application/json, application/*+json
 Character-set  | UTF-8
 Time format | ISO8601 , `yyyy-MM-dd'T'HH:mm:ss.SSSZ`
+
+# Supported asset code
+
+Digital currency types and withdrawal rates currently supported by the system，Please check the official website <a href='https://www.bitexpress.io/#/rate' target=_blank >Supported asset code</a> page.
+
 
 # Form of Data Encapsulation
 
@@ -345,6 +352,8 @@ openssl_sign($requestJson, $binarySignature, $privateKey, "sha256WithRSAEncrypti
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, 'https://www.bitexpress.io/api/gateway.do');
 curl_setopt($ch, CURLOPT_HEADER, 0);
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($ch, CURLOPT_HTTPHEADER, array("Content-Type: application/json; charset=utf-8"));
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 curl_setopt($ch, CURLOPT_POST, 1);
@@ -427,6 +436,131 @@ print(binascii.hexlify(signContent))
 #
 ```
 
+```csharp
+The project needs to rely on RsaHelper.cs to support RSA algorithm
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Net.Security;
+using Newtonsoft.Json;
+using System.Net;
+using System.IO;
+using System.IO.Compression;
+using Newtonsoft.Json.Linq;
+using System.Web.Script.Serialization;
+
+namespace BitExpressDemo
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            string priKey = @"-----BEGIN RSA PRIVATE KEY-----
+            MIIEowIBAAKCAQEAyFoGHP3VTcjh9lRHx2JNv9P+HDW6VDMNlLwCA2bFbSZrY5J3
+            f4lzUBRFL9cX62yfWvkm18FRTIeUK+NIaUL4y1hhd0JsuM65xrn1wipf0lTOdzOz
+            87Y3sav2YWIsGuH8dh8WmCZ0fMfU/TC3/i4a2VdBY34hPqEZ0rryv9zX79lkY9SF
+            jABTsirTAv43f9OjQRIrBH0Zr33zVgbD2ASanIWLyHFePXRr5g49JALh0ShGnnoG
+            1/dQ4vsF+b3KJxy5ZKK0uy6bysabHFmCHoJs5aM1SRvdJlgO6IgRtGfXFael4eFc
+            vy0oHZ+SFk5WFWGuZHCQfBEZJW5pizRYASPT+wIDAQABAoIBAA5/JQ4X98UnEeKG
+            +qKcpE+LAUn9QTwybXsjl2mzl/lr3D1aLbdWtLdIoDDz+VEZjPZCLONTo5RMAxah
+            3W1wYRwlivfcII3Gt35/mh6wfjpz1HSfkxfBSYpbjPpC5joTu/a4DSR5M9iLhQfE
+            7KtBnsO3Io4WZEVp1rp+uG3VhvJdwbWhsUsBj1cZomZo8YCEaY8gaQacyTXrZUdb
+            dEK6NYHNGUL2iRFgFjTqs6IVUL+CKmxeirmqSVLKlhRWr6oBdgVmnEkjdLMwn3t0
+            nrXZeGuZBBFgOGH2aUeUbYOlKgV7/z084XyVmoqnzmDmmUR95bnwx/cKxsA3Rve4
+            AQ7zr5ECgYEA41e7yRc9K4e6q2tbfQP5d0yxS2Axl9ZjizRiQHKfhgPnny8XIfJr
+            5il1GYn1t4ddGLC5txZpFLxz9Dj8AQvgRQ0juSPdqsIqY5ugjGm/RcaydYx35Gzh
+            vrdrwAoET4a0obK8sddbd/PfFz0jqwpCNEnrxfTIwSAldlwRoPt6ZFUCgYEA4ZtM
+            gzGO4U0LViAlmC2T4NTaOaJ4N4aUkMvED7+90fowtTTXlqt/UDyaZ7B1UAijO9QA
+            ftIFRiI2sRGWDppB9aUX4xhbGXzukAj6DrroLCNKKtLCUxYqqpB3EFbISOZnsbxB
+            WU7fcpr+uTeyYQYzjEBjpibS/XyzITvuhdfzJw8CgYEAotvipjeDln9w9gO+Ulxa
+            hV/nUjviywbF4J7yE4EJThPWBW7Sf3sOWJ8yR81QvNy3kExpfgML29L0ret0e7tq
+            OY0kHijXTtAxVZHS/UNzxiSFCzhJWtW1Ec6L3dJPLDkvhPZpvmysFc4Z7qfZuVlr
+            +9FImVK1zcOdkqB58Hy2PNECgYB7854zCnxs7q6G0Dy3gnsX8PpA5jHUl/1yHHIJ
+            ERjSj/pI5NJ6NplJVTKkO4AIy+YbTdxD0VISeWPBH19pgHky5FTecZhDxa8wta3l
+            f+1lqrHqG0em7KvecGbqNDPwUZ6xOTRSRBJiXiQLUT2RLx4NNadKN1R+7w9f+BSR
+            ttciIwKBgCEE5q6P1uhwormvzTHRxFeiuvQszQKLPodw+USGOzZUYverWkZKmpPz
+            8W0lzY7NG/bKCbHeXrjsnsRZbmoUDFbM45yx+h0dSHTpe0M4MAFTTbMubnqo8CYA
+            ptQhci6qbrQNdgHTrAqyCAVklAaSuaCmrljcsTEthIniIIaURjYF
+            -----END RSA PRIVATE KEY-----";
+
+            string pubKey = @"-----BEGIN PUBLIC KEY-----
+            MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuQ69HDFzFxlUVeQJM5Nj
+            JeGAWOmglpFgcwxxF2rZseu6aq8c1oz5wtcQwNTN9OeJEYsmrmSkRrxoLkRBeFSd
+            nJLngQ42Ynnpo6d1TPxI7GcB2VqKEqmhXLTE4HYaa64Rcl9N5+g2uQwAA3uc0OnT
+            z5tYgyrC9ZYX3xNjqfgX2jhNRKo+Feo0ICNcEy8mP60ih3ON+DUuDefv0z3nPQY+
+            Znm+1jIURL7yiBi9bmUamPduDNDs/wxOJkgfIKWFPx75EdOiS+xWewdPF2PczRSB
+            Of5LVOgimEA5Um0TprHe0Zcp1vnsZ6tPsR2fvEM8qdV4LCAc/b8qv3FxNXhtSo9O
+            9wIDAQAB
+            -----END PUBLIC KEY-----";
+
+            priKey = priKey.Replace("-----BEGIN RSA PRIVATE KEY-----", "")
+                .Replace("-----END RSA PRIVATE KEY-----", "");
+            pubKey = pubKey.Replace("-----BEGIN PUBLIC KEY-----", "")
+                .Replace("-----END PUBLIC KEY-----", "");
+
+            RsaHelper rsaHelper = new RsaHelper();
+            Console.OutputEncoding = System.Text.Encoding.Default;
+            string url = "https://www.bitexpress.io/api/gateway.do";
+            JObject dicheader = new JObject();
+            dicheader.Add(new JProperty("requestTime", "2019-04-23T19:56:59.444+0800"));
+            dicheader.Add(new JProperty("service", "plus"));
+            dicheader.Add(new JProperty("serviceVersion", "1.0"));
+            JObject dicBody = new JObject();
+            dicBody.Add(new JProperty("a", "1"));
+            dicBody.Add(new JProperty("b", "2"));
+            dicBody.Add(new JProperty("time", "2019-04-23T19:56:59.442+0800"));
+            JObject dic = new JObject();
+            dic.Add(new JProperty("header", dicheader));
+            dic.Add(new JProperty("body", dicBody));
+            string requestParams = Convert.ToString(dic).Replace("\n", "").Replace(" ", "").Replace("\t", "").Replace("\r", "").Replace("\\", "");
+            Console.WriteLine("签名参数是：");
+            Console.WriteLine(requestParams);
+            string signature = rsaHelper.Sign(requestParams, priKey);
+            Console.WriteLine("算出来的结果是：");
+            Console.WriteLine(signature);
+            Dictionary<string, string> dicContent=new Dictionary<string,string>();
+            dicContent.Add("uid", "437");
+            dicContent.Add("signature", signature);
+            dicContent.Add("signatureVersion", "1.0");
+            dicContent.Add("content", requestParams);
+
+            HttpWebRequest request = null;
+            request = WebRequest.Create(url) as HttpWebRequest;
+            request.ProtocolVersion = HttpVersion.Version10;
+            request.Method = "POST";
+            request.ContentType = "application/json; charset=utf-8";
+            //request.ContentType = "application/x-www-form-urlencoded; charset=utf-8";
+            string contentJson = JsonConvert.SerializeObject(dicContent, Formatting.Indented);
+            Console.WriteLine("开始推送到网关数据：");
+            Console.WriteLine(contentJson);
+            byte[] data = Encoding.GetEncoding("utf-8").GetBytes(contentJson);
+            using (Stream stream = request.GetRequestStream())
+            {
+                stream.Write(data, 0, data.Length);
+            }
+
+            HttpWebResponse response = request.GetResponse() as HttpWebResponse;
+            //打印返回值  
+            Stream repStream = response.GetResponseStream();   //获取响应的字符串流  
+            StreamReader sr = new StreamReader(repStream); //创建一个stream读取流  
+            string html = sr.ReadToEnd();   //从头读到尾，放到字符串html  
+            Console.Write("获取到网关返回信息：");
+            Console.WriteLine(html);
+            Console.Write("按任意键退出");
+            Console.ReadKey(true);
+        }
+    }
+}
+
+```
+
+```java
+You can download JAVA SDK at : https://github.com/DistributedBanking/BEPG 
+```
+
+
 ```more
 I hope you can contribute more language versions to us as a use case, please send to support@bitphare.com
 ```
@@ -441,6 +575,27 @@ Response:
 "body":
 {"message":"aaa","result":3,"time":"2019-04-24T17:01:01.985+0800"}
 }
+```
+
+## Callback Notification data encapsulation
+
+The package is encapsulated in the same way as the merchant requests the data encapsulation envelope, and the recipient of the letter decrypts the content by itself after signing.
+
+```json
+Callback notification format：
+{"uid":459,"signature":"d739b3251d32b170d3cddaa5fb4aebf1ef8af7b81a7cfada39a3ff6a2a9
+bf67ca83af7bcba5b9ca8663c343bd9bc69b9020283f424418499852f512917e9a79c58752239f3d260
+4ddc0648657690fba508424358e97aba4450b420bb989a2152ae9b39e3f3b8490a5787e192490b3a563
+9938759082b03582684322a251f1d4032379cf681e37f0e739cb59fa35fad03ca1b3353ccec0cfc91ff
+8f3639b1145e6b9d0ac4d51c44efdb984fc99158859dcbca5cc1797aaeeaa497a123a4770dbb7498d3f
+96e0b8e35bcc1368a89ba708b972efadc2298ad04d0fbd7581083ab8c53ca29897b0c5977820ae02d55
+14029ebfb86e0bbc355efe6fe46f64bc6d831c","signatureVersion":1.0,"content":"{\"header\"
+:{\"requestTime\":\"2019-05-24T20:32:00.040+0800\",\"service\":\"createAcquireOrder\"
+,\"serviceVersion\":1.0},\"body\":{\"amount\":1.001,\"realArrivedAmount\":0.99099,\
+"interactionMode\":\"CASHIER\",\"name\":\"20190524000000228-test\",\"payeeUid\":\"459\",
+\"status\":\"SUCCESS\",\"assetCode\":\"USDT_ERC20\",\"createdTime\":
+\"2019-05-24T20:16:23.118+0800\",\"lastUpdatedTime\":\"2019-05-24T20:29:57.326+0800\",
+\"id\":\"20190524000084223\",\"outTradeNo\":\"xth851765920kakak\",\"expiredTime\":\"2019-05-25T08:16:23.142+0800\"}}"}
 ```
 
 ## Notification received confirmation format
@@ -465,6 +620,39 @@ If we receive a return that is not successful, we will continue to try to issue 
 ```json
 Callback response：
 {"success":true}
+```
+
+```php
+<?php
+$publicKey = <<<EOF
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApEd81p+JqzbLcyYiuhee
+drKbreyOR4D4obs8Of3fIk/+QVgkCQO3vA90FC14CI7miMkD0W5RLsHIx7KfqDJ4
+gIFHWznksW/sQWDiDiQTfoAnLjOYP3Qeg4j9LprhYuD3cSJ8Izd9uwRkomQo+d1v
+bXzNobf56Oj534N/dtsPlKFzbhUF3YAk+901wuCE3wr/3SC6pdFvGgrm6xQaNX6q
+uwu3nLMBDsX59AlvrrrTF0RQ8MunF/HWiW7YNSY5cEevPGmardyk9YHFFYFqXXgM
+wZighBZzRBcYm0OR3lD8iETIwl7a/4aLCZiat70t0Gbg50GiKc1zAnPV4SS+joPy
+bwIDAQAB
+-----END PUBLIC KEY-----
+EOF;
+
+$content = file_get_contents("php://input");
+
+$decoded = json_decode($content, true);
+
+$ok = openssl_verify($decoded["content"], hex2bin($decoded["signature"]), $publicKey, "sha256WithRSAEncryption");
+
+if ($ok == 1) {
+ $decodedContent = json_decode($decoded["content"], true);
+ if (strcmp($decodedContent["body"]["status"],"SUCCESS") == 0){
+ /*业务逻辑*/
+ }
+}else if ($ok == 0){
+ echo "wrong";
+}else{
+ echo "fail";
+}
+?>
 ```
 
 # Business Service
@@ -549,7 +737,7 @@ link to show to your users and use `OTC Fiat payment` to pay the order.
 Parameter | Parameter Name | Type（Length） | Description | Required | Demo
 -------- | -------- | ---------------- | ------------------------- | ------- | ------------------
 outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190514122649
-assetCode | AssetCode | String(50) | AssetCode | Required | ETH
+assetCode | AssetCode | String(50) | AssetCode | Required | USDT_ERC20
 fiatAmount | fiat money amount | BigDecimal | fiat money amount | Required | 20
 currency | fiat money name | String(20) | fiat money name,only support CNY now | Required | CNY
 name | Goods Name | String(200) | Trade Description | Required | legal
@@ -557,9 +745,13 @@ email | Refund notify email | String(128) | email address | Required | abcd123@1
 language | language type | String(20) | only zh,en | Required | en
 notifyUrl | notifyUrl | String(200) | Used to receive notification of transaction results | Required | https://yoursite.com/services/getresponse
 
+<aside class="notice">
+AssetCode currently only supports USDT_ERC20 at now. Other currency Fiat money OTC will be launched soon.
+</aside>
+
 ```json
 Example Request body :
-{"outTradeNo":"20190424181332","assetCode":"ETH",
+{"outTradeNo":"20190424181332","assetCode":"USDT_ERC20",
 "fiatAmount":1000,"currency":"CNY",
 "name":"test","email":"xxx@212.com","language":"ENGLISH","notifyUrl":
 "https://yoursite.com/services/getresponse"}
@@ -567,7 +759,7 @@ Example Request body :
 Example Request content :
 {"header":{"requestTime":"2019-04-24T18:13:32.830+0800",
 "service":"createFiatAcquireOrder","serviceVersion":1.0,
-"preserved":null},"body":{"outTradeNo":"20190424181332","assetCode":"ETH",
+"preserved":null},"body":{"outTradeNo":"20190424181332","assetCode":"USDT_ERC20",
 "fiatAmount":1000,"currency":"CNY",
 "name":"test","email":"xxx@212.com","language":"ENGLISH","notifyUrl":
 "https://yoursite.com/services/getresponse"}}
@@ -835,6 +1027,9 @@ outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 
 receiveAddress | receiverAddress | String(60) | receiverAddress | Required | 0xf8d6478ee5bbb23e5084fbec67f6c7ad6001d026
 notifyUrl | notifyUrl | String(200) | Used to receive notification of transaction results | Optional | https://yoursite.com/crypto-asset-payment/services/getresponse
 
+* Supported asset code
+<a href='https://www.bitexpress.io/#/rate' target=_blank >Supported asset code</a>
+
 ```json
 Example Request content :
 {"header":{"requestTime":"2019-04-24T20:09:57.436+0800",
@@ -967,6 +1162,9 @@ assetCode | AssetCode | String(50) | AssetCode | Required | ETH
 outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
 receiverMobile | receiverMobile | String(14) | receiverMobile | Required | +8613262958193
 notifyUrl | notifyUrl | String(200) | Used to receive notification of transaction results | Optional  | https://yoursite.com/crypto-asset-payment/services/getresponse
+
+* Supported asset code
+<a href='https://www.bitexpress.io/#/rate' target=_blank >Supported asset code</a>
 
 ```json
 Example Request content :
@@ -1123,6 +1321,511 @@ SYSTEM_ERROR | System Error
 ASSET_CODE_NOT_FOUND | query asset code is unsupport
 
 
+## Fiat Moeny Fundout with Floating Asset
+
+Submitting the amount of the legal currency for legal currency withdrawal,
+the system will automatically calculate the corresponding digital 
+currency amount and sell it in the OTC market.
+
+* Service Name
+"service":"fiatFundoutFloatAsset"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+assetCode | AssetCode | String(50) | AssetCode | Required | USDT_ERC20
+currencyCode | currencyCode | String(50) | currencyCode | Required | CNY
+currencyDigit | currencyDigit | int | currencyDigit | Required | 30
+notifyUrl | notifyUrl | String(200) | Used to receive notification of transaction results | Optional | https://yoursite.com/crypto-asset-payment/services/getresponse
+receiverParam | payee receive account | json | payee receive account or bankcard etc. | Required | `{"bankCode":"招商银行","accountName":"李四","accountType":"2","accountNo":"zhangdan44","branch":"XX路支行"}`
+
+* receiverParam
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+accountType | payee account Type | String(10) | 2：alipay，3，bankcard | Required | 2
+accountNo | payee account NO. | String(200) | payee account NO. | Required | zhangdan44
+accountName | payee account name | String(50) | payee account name |  Required | 李四
+bank | bank name  | String(20) | bank name | Optional | 招商银行
+branch | branch name  | String(20) | branch name | Optional | XX路支行
+
+<aside class="notice">
+AssetCode currently only supports USDT_ERC20 at now. Other currency Fiat money OTC will be launched soon.
+</aside>
+
+```json
+Example Request body :
+{"outTradeNo":"20190606121604","assetCode":"USDT_ERC20","currencyCode":"CNY","currencyAmount":30,
+"notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse",
+"receiverParam":{"bankCode":"招商银行","accountName":"李四",
+"accountType":"2","accountNo":"zhangdan44","branch":"XX路支行"}}
+
+Example Request content :
+{"header":{"requestTime":"2019-06-06T12:16:04.785+0800","service":"fiatFundoutFloatAsset","serviceVersion":1.0},
+"body":{"outTradeNo":"20190606121604","assetCode":"USDT_ERC20","currencyCode":"CNY","currencyAmount":30,
+"notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse",
+"receiverParam":{"bankCode":"招商银行","accountName":"李四",
+"accountType":"2","accountNo":"zhangdan44","branch":"XX路支行"}}}
+```
+
+* Response Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+id | trade order no | String(17) | trade order no | Required | 20190424000041466
+assetCode | AssetCode | String(50) | AssetCode | Required | USDT_ERC20
+assetAmount | asset Amount | BigDecimal(24,8) | asset Amount | Required | 5.0
+currencyCode | currency Code | String(50) | currency Code | Required | CNY
+currencyAmount | currency Amount   | BigDecimal(24,8) | currency Amount | Required | 231
+brokerOrderId | OTC broker Order Id | string(100) | OTC broker Order Id | Optional | 2131039-90-90sda-f90-a8f9810293
+deliveryMemo | deliver Memo | String(200) | deliver Memo | Required | XXX出款，账户XXXXX   
+status | order status | String(50) | order status | Required | SUCCESS
+payerUid | payerUid | String(32) | payerUid | Required | 459 
+createdTime | Order Created Time | Date | Order Created Time | Required | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | lastUpdatedTime | Date | order last Updated Time | Required | 2019-04-26T05:11:10.376+0800
+
+* Status Code
+
+Status Code | Description
+----- | ------
+CREATED | CREATED
+SUCCESS | SUCCESS
+FAILURE | FAILURE
+COLLECTED | COLLECTED
+PLACED | PLACED
+REJECTED | REJECTED
+DISPOSED | DISPOSED
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-06-06T14:26:12.667+0800","responseCode":"SUCCESS"},
+"body":{"id":"20190606000045377","assetCode":"USDT_ERC20","assetAmount":4.285714,
+"currencyAmount":30,"currencyCode":"CNY","deliveryMemo":"abc","payerUid":"490",
+"status":"REQUESTED","createdTime":"2019-06-06T14:26:09.027+0800","lastUpdatedTime":
+"2019-06-06T14:26:12.008+0800","outTradeNo":"20190606142607","brokerOrderId":"20190606102001"}}
+```
+
+* Callback
+
+**YES**
+
+```json
+Example：
+{"uid":598,"signature":"1aee7a201695255945ae3a53b38462332ee930277995c4dfbb0fcd0a6
+1bc032fb39e597f09be08152054c6aa3d114d4f00103b838477325cf5a309cba7cc8ccffe15e35a5b
+ed8099df1c82118641dcf2d0bc4ee2c232a38f4731e46e1ad46d2abfb025fb47db39372352d75a48c
+e5e93a83b34b78502169b9d0e35cef55714cfb2018c413f1dcad3584a197d9c982904bd26898714b1
+b85f34e4e03553dd1bdd79bdbdcdf3f9a6290c91718a1da1a9fdc162f542eddae408485eb185a7f3
+fb1b63d2110cade7edcb5d8e8b548d4a8991b3b4249654aed14ba1afead9511c99acea4595625b512
+5483e8b800853444d9b1be185b0cb44e7fda9aaa01f9b10ddea","signatureVersion":1.0,
+"content":"{"header":{"requestTime":"2019-06-06T15:49:43.222+0800","service":
+"floatAssetFundout","serviceVersion":1.0},"body":{"id":"20190606000045398","assetCode":
+"USDT_ERC20","assetAmount":14.285714,"currencyAmount":100,"currencyCode":"CNY","payerUid"
+:"598","status":"SUCCESS","createdTime":"2019-06-06T15:48:09.099+0800",
+"lastUpdatedTime":"2019-06-06T15:49:42.949+0800","outTradeNo":"1559807287407"}}"}
+```
+
+The callback notification content and the query result format are the same package
+
+* Business Error Code
+
+Error Code | Description
+------ | --------
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+ASSET_CODE_NOT_FOUND | query asset code is not found
+ASSET_CODE_UNSUPPORT_OTC | query asset code is unsupport
+CURRENCY_UNSUPPORT_OTC | fiat type not support OTC
+
+## Fiat Moeny Fundout with Floating Fiat Money
+
+Submitting the determined amount of digital currency for 
+legal currency withdrawal, the system will automatically 
+sell the digital currency in the OTC market and transfer 
+the corresponding legal currency amount to the receiving address.
+
+* Service Name
+"service":"fiatFundoutFloatCurrency"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+assetCode | AssetCode | String(50) | AssetCode | Required | USDT_ERC20
+assetAmount | asset Amount | BigDecimal(24,8) | asset Amount | Required | 30.00
+currencyCode | currencyCode | String(50) | currencyCode | Required | CNY
+notifyUrl | notifyUrl | String(200) | Used to receive notification of transaction results | Optional | https://yoursite.com/crypto-asset-payment/services/getresponse
+receiverParam | payee receive account | json | payee receive account or bankcard etc. | Required | `{"bankCode":"招商银行","accountName":"李四","accountType":"2","accountNo":"zhangdan44","branch":"XX路支行"}`
+
+* receiverParam
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+accountType | payee account Type | String(10) | 2：alipay，3，bankcard | Required | 2
+accountNo | payee account NO. | String(200) | payee account NO. | Required | zhangdan44
+accountName | payee account name | String(50) | payee account name |  Required | 李四
+bank | bank name  | String(20) | bank name | Optional | 招商银行
+branch | branch name  | String(20) | branch name | Optional | XX路支行
+
+<aside class="notice">
+AssetCode currently only supports USDT_ERC20 at now. Other currency Fiat money OTC will be launched soon.
+</aside>
+
+```json
+Example Request body :
+{"outTradeNo":"20190606121604","assetCode":"USDT_ERC20","currencyCode":"CNY","assetAmount":30,
+"notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse",
+"receiverParam":{"bankCode":"招商银行","accountName":"李四",
+"accountType":"2","accountNo":"zhangdan44","branch":"XX路支行"}}
+
+Example Request content :
+{"header":{"requestTime":"2019-06-06T12:16:04.785+0800","service":"fiatFundoutFloatCurrency","serviceVersion":1.0},
+"body":{"outTradeNo":"20190606121604","assetCode":"USDT_ERC20","currencyCode":"CNY","assetAmount":30,
+"notifyUrl":"https://yoursite.com/crypto-asset-payment/services/getresponse",
+"receiverParam":{"bankCode":"招商银行","accountName":"李四",
+"accountType":"2","accountNo":"zhangdan44","branch":"XX路支行"}}}
+```
+
+* Response Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+id | trade order no | String(17) | trade order no | Required | 20190424000041466
+assetCode | AssetCode | String(50) | AssetCode | Required | USDT_ERC20
+assetAmount | asset Amount | BigDecimal(24,8) | asset Amount | Required | 5.0
+currencyCode | currency Code | String(50) | currency Code | Required | CNY
+currencyAmount | currency Amount   | BigDecimal(24,8) | currency Amount | Required | 231
+brokerOrderId | OTC broker Order Id | string(100) | OTC broker Order Id | Optional | 2131039-90-90sda-f90-a8f9810293
+deliveryMemo | deliver Memo | String(200) | deliver Memo | Required | XXX出款，账户XXXXX   
+status | order status | String(50) | order status | Required | SUCCESS
+payerUid | payerUid | String(32) | payerUid | Required | 459 
+createdTime | Order Created Time | Date | Order Created Time | Required | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | lastUpdatedTime | Date | order last Updated Time | Required | 2019-04-26T05:11:10.376+0800
+
+* Status Code
+
+Status Code | Description
+----- | ------
+CREATED | CREATED
+SUCCESS | SUCCESS
+FAILURE | FAILURE
+COLLECTED | COLLECTED
+PLACED | PLACED
+REJECTED | REJECTED
+DISPOSED | DISPOSED
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-06-06T14:26:12.667+0800","responseCode":"SUCCESS"},
+"body":{"id":"20190606000045377","assetCode":"USDT_ERC20","assetAmount":4.285714,
+"currencyAmount":30,"currencyCode":"CNY","deliveryMemo":"abc","payerUid":"490",
+"status":"REQUESTED","createdTime":"2019-06-06T14:26:09.027+0800","lastUpdatedTime":
+"2019-06-06T14:26:12.008+0800","outTradeNo":"20190606142607","brokerOrderId":"20190606102001"}}
+```
+
+* Callback
+
+**YES**
+
+```json
+Example：
+{"uid":598,"signature":"1aee7a201695255945ae3a53b38462332ee930277995c4dfbb0fcd0a6
+1bc032fb39e597f09be08152054c6aa3d114d4f00103b838477325cf5a309cba7cc8ccffe15e35a5b
+ed8099df1c82118641dcf2d0bc4ee2c232a38f4731e46e1ad46d2abfb025fb47db39372352d75a48c
+e5e93a83b34b78502169b9d0e35cef55714cfb2018c413f1dcad3584a197d9c982904bd26898714b1
+b85f34e4e03553dd1bdd79bdbdcdf3f9a6290c91718a1da1a9fdc162f542eddae408485eb185a7f3
+fb1b63d2110cade7edcb5d8e8b548d4a8991b3b4249654aed14ba1afead9511c99acea4595625b512
+5483e8b800853444d9b1be185b0cb44e7fda9aaa01f9b10ddea","signatureVersion":1.0,
+"content":"{"header":{"requestTime":"2019-06-06T15:49:43.222+0800","service":
+"floatAssetFundout","serviceVersion":1.0},"body":{"id":"20190606000045398","assetCode":
+"USDT_ERC20","assetAmount":14.285714,"currencyAmount":100,"currencyCode":"CNY","payerUid"
+:"598","status":"SUCCESS","createdTime":"2019-06-06T15:48:09.099+0800",
+"lastUpdatedTime":"2019-06-06T15:49:42.949+0800","outTradeNo":"1559807287407"}}"}
+```
+
+The callback notification content and the query result format are the same package
+
+* Business Error Code
+
+Error Code | Description
+------ | --------
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+ASSET_CODE_NOT_FOUND | query asset code is not found
+ASSET_CODE_UNSUPPORT_OTC | query asset code is unsupport
+CURRENCY_UNSUPPORT_OTC | fiat type not support OTC
+
+## FiatFFundout Single query
+
+Check the order status of the order by order number (requestNo)
+
+* Service Name
+"service":"queryFiatFundout"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+
+```json
+Example Request body :
+{"outTradeNo":"20190424181332"}
+
+Example Request content :
+{"header":{"requestTime":"2019-04-24T18:13:32.830+0800",
+"service":"queryFiatFundout","serviceVersion":1.0,
+"preserved":null},body":{"outTradeNo":"20190424181332"}}
+```
+
+* Response Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+outTradeNo | Merchant Order No. | String(200) | Merchant Order No. | Required | 20190424102216
+id | trade order no | String(17) | trade order no | Required | 20190424000041466
+assetCode | AssetCode | String(50) | AssetCode | Required | USDT_ERC20
+assetAmount | asset Amount | BigDecimal(24,8) | asset Amount | Required | 5.0
+currencyCode | currency Code | String(50) | currency Code | Required | CNY
+currencyAmount | currency Amount   | BigDecimal(24,8) | currency Amount | Required | 231
+brokerOrderId | OTC broker Order Id | string(100) | OTC broker Order Id | Optional | 2131039-90-90sda-f90-a8f9810293
+deliveryMemo | deliver Memo | String(200) | deliver Memo | Required | XXX出款，账户XXXXX   
+status | order status | String(50) | order status | Required | SUCCESS
+payerUid | payerUid | String(32) | payerUid | Required | 459 
+createdTime | Order Created Time | Date | Order Created Time | Required | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | lastUpdatedTime | Date | order last Updated Time | Required | 2019-04-26T05:11:10.376+0800
+
+* Status Code
+
+Status Code | Description
+----- | ------
+CREATED | CREATED
+SUCCESS | SUCCESS
+FAILURE | FAILURE
+COLLECTED | COLLECTED
+PLACED | PLACED
+REJECTED | REJECTED
+DISPOSED | DISPOSED
+
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-06-06T14:26:12.667+0800","responseCode":"SUCCESS"},
+"body":{"id":"20190606000045377","assetCode":"USDT_ERC20","assetAmount":4.285714,
+"currencyAmount":30,"currencyCode":"CNY","deliveryMemo":"abc","payerUid":"490",
+"status":"REQUESTED","createdTime":"2019-06-06T14:26:09.027+0800","lastUpdatedTime":
+"2019-06-06T14:26:12.008+0800","outTradeNo":"20190606142607","brokerOrderId":"20190606102001"}}
+```
+
+* Business Error Code
+
+Error Code | Description
+----- | ------
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+
+## Create OTC Fiat Fundout Disposal Order
+
+OTC partners use, OTC calls this interface to complete 
+the digital currency settlement of OTC orders, 
+and returns the result of the Fiat Money.
+
+* Service Name
+"service":"createFiatFundoutAssetDisposition"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+targetOrderId | payment target OrderId | String(200) | payment target OrderId | Required | 20190424102219
+assetDisposition | asset Disposition method | BigDecimal(24,8) | RECEIVE/REFUND | Required | RECEIVE
+assetCode | AssetCode | String(50) | AssetCode | Required | USDT_ERC20
+assetAmount | asset Amount | BigDecimal(24,8) | asset Amount | Required | 5.0
+deliveryMemo | deliver Memo | String(200) | deliver Memo | Required | XXX出款，账户XXXXX
+
+```json
+Example Request body :
+{"targetOrderId":"20190605141200","assetDisposition":"RECEIVE","assetCode":"ETH",
+"assetAmount":10,"deliveryMemo":"test asset disposition"}
+
+Example Request content :
+{"header":{"requestTime":"2019-06-05T14:13:05.570+0800","service":"createOtcFundoutAssetDisposition",
+"serviceVersion":1.0},"body":{"targetOrderId":"20190605141200","assetDisposition":"RECEIVE",
+"assetCode":"ETH","assetAmount":10,"deliveryMemo":"test asset disposition"}}
+```
+
+* Response Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+targetOrderId | payment target OrderId | String(200) | payment target OrderId | Required | 20190424102219
+assetCode | AssetCode | String(50) | AssetCode | Required | USDT_ERC20
+assetAmount | asset Amount | BigDecimal(24,8) | asset Amount | Required | 5.0
+assetDisposition | asset Disposition method | BigDecimal(24,8) | RECEIVE/REFUND | Required | RECEIVE
+status | order status | String(50) | order status | Required | SUCCESS
+deliveryMemo | deliver Memo | String(200) | deliver Memo | Required | XXX出款，账户XXXXX
+createdTime | Order Created Time | Date | Order Created Time | Required | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | lastUpdatedTime | Date | order last Updated Time | Required | 2019-04-26T05:11:10.376+0800
+
+* Status Code
+
+Status Code | Description
+----- | ------
+DISPOSED | request has been received, waiting to dispose of the asset
+SUCCESS | Successful, settled
+FAILURE | Refunded, order failed
+
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-06-06T15:29:50.585+0800","responseCode":"SUCCESS"},
+"body":{"targetOrderId":"20190606000045390","assetDisposition":"RECEIVE","assetCode"
+:"USDT_ERC20","assetAmount":10,"status":"SUCCESS","deliveryMemo":"test asset disposition",
+"createdTime":"2019-06-06T15:25:47.026+0800","lastUpdatedTime":"2019-06-06T15:29:49.708+0800"}}
+```
+
+* Callback
+
+No, synchronous interface, idempotent retries
+
+
+* Business Error Code
+
+Error Code | Description
+----- | ------
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+ORDER_NOT_FOUND | order not found
+ORDER_INFO_INCONSISTENCY | order info is inconsistency 
+
+## Query Fiat Fundout Asset Disposition
+
+Query the OTC to call the interface to complete the digital currency settlement of the OTC order, and report the result of the Fiat money withdrawal.
+
+* Service Name
+"service":"queryFiatFundoutAssetDisposition"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+targetOrderId | payment target OrderId | String(200) | payment target OrderId | Required | 20190424102219
+
+```json
+Example Request body :
+{"targetOrderId":"20190606000045379"}
+
+Example Request content :
+{"header":{"requestTime":"2019-06-05T14:22:44.316+0800","service":
+"queryOtcFundoutAssetDisposition","serviceVersion":1.0},"body":{"targetOrderId":"20190606000045379"}}
+```
+
+* Response Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+targetOrderId | payment target OrderId | String(200) | payment target OrderId | Required | 20190424102219
+assetCode | AssetCode | String(50) | AssetCode | Required | USDT_ERC20
+assetAmount | asset Amount | BigDecimal(24,8) | asset Amount | Required | 5.0
+assetDisposition | asset Disposition method | BigDecimal(24,8) | RECEIVE/REFUND | Required | RECEIVE
+status | order status | String(50) | order status | Required | SUCCESS
+deliveryMemo | deliver Memo | String(200) | deliver Memo | Required | XXX出款，账户XXXXX
+createdTime | Order Created Time | Date | Order Created Time | Required | 2019-04-26T05:11:10.376+0800
+lastUpdatedTime | lastUpdatedTime | Date | order last Updated Time | Required | 2019-04-26T05:11:10.376+0800
+
+* Status Code
+
+Status Code | Description
+----- | ------
+DISPOSED | request has been received, waiting to dispose of the asset
+SUCCESS | Successful, settled
+FAILURE | Refunded, order failed
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-06-06T15:29:50.585+0800","responseCode":"SUCCESS"},
+"body":{"targetOrderId":"20190606000045390","assetDisposition":"RECEIVE","assetCode"
+:"USDT_ERC20","assetAmount":10,"status":"SUCCESS","deliveryMemo":"test asset disposition",
+"createdTime":"2019-06-06T15:25:47.026+0800","lastUpdatedTime":"2019-06-06T15:29:49.708+0800"}}
+```
+
+* Business Error Code
+
+Error Code | Description
+----- | ------
+TRADE_ERROR | Trading exception
+SYSTEM_ERROR | System Error
+ORDER_NOT_FOUND | order not found
+ORDER_INFO_INCONSISTENCY | order info is inconsistency 
+
+## OTC query Rate
+
+Check the OTC buy/sell exchange rate.
+
+* Service Name
+"service":"queryOtcQuote"
+* Service Version
+"serviceVersion":1.0
+* Request Centent Format
+
+Parameter | Parameter Name | Type（Length） | Description | Required | Demo
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+assetCode | asset Code | String(50) | asset Code | Required  | USDT_ERC20
+currencyCode | currency Code | String(50) | currency Code | Required | CNY
+direction | exchange direction | String(10) | BUY is BUY USDT,SELL is SELL USDT | Required | BUY
+
+```json
+Example Request content :
+{"header":{"requestTime":"2019-05-29T12:57:30.618+0800",
+"service":"queryDirectionQuote","serviceVersion":1.0},"body":{"assetCode":"USDT_ERC20",
+"currencyCode":"CNY","direction":"BUY"}}
+```
+
+* Response Format
+
+参数 | 参数名称 | 类型（长度范围） | 参数说明 | 是否可空 | 样例
+-------- | -------- | ---------------- | ------------------------- | ------- | ------------------
+direction | exchange direction | String(10) | BUY is BUY USDT,SELL is SELL USDT | Required | BUY
+rate | rate | BigDecimal(24,8) | exchange rate | Required | 7.03
+fee | fee | BigDecimal(24,8) | fee | Required | 0
+assetCode | assetCode | String(50) | assetCode | Required | USDT_ERC20
+assetDigit | assetDigit | int | assetDigit | Required | 6
+currencyCode | currencyCode | String(50) | currencyCode | Required | CNY
+currencyDigit | currencyDigit | int | currencyDigit | Required | 2 
+maxCurrencyAmount | max Currency Amount | BigDecimal(24,8) | max Currency Amount | Required | 5000.00
+minCurrencyAmount | min Currency Amount | BigDecimal(24,8) | min Currency Amount | Required | 10.00
+maxAssetAmount | max Asset Amount | BigDecimal(24,8) | max Asset Amount | Required | 711.237553
+minAssetAmount | min Asset Amount | BigDecimal(24,8) | min Asset Amount | Required | 1.422475
+
+
+```json
+Example Response :
+{"header":{"responseTime":"2019-05-29T12:57:35.177+0800","responseCode":
+"SUCCESS"},"body": {"direction":"TO_ASSET","rate":7.03,"fee":0,"assetCode":
+"USDT_ERC20","assetDigit":6,"currencyCode":"CNY","currencyDigit":2,
+"maxCurrencyAmount":1000.00,"minCurrencyAmount":20.00,"maxAssetAmount"
+:142.247510,"minAssetAmount":2.844950}}
+```
+
+* Business Error Code
+
+Error Code | Description
+----- | ------
+ASSET_CODE_NOT_FOUND | query asset code is not found
+ASSET_CODE_UNSUPPORT_OTC | query asset code is unsupport
+SYSTEM_ERROR | System Error
+
+
 # Response code schedule
 
 The envelope returns the content, the responseCode in the response header in the body structure
@@ -1140,7 +1843,6 @@ REQUEST_FORMAT_ERROR | request format error
 REQUEST_USER_NOT_FOUND | request user not found
 REQUEST_USER_OPEN_API_DISABLED | Initiating the request user did not open open-api
 VIERIFY_SIGNATURE_FAILURE | Verification failed
-
 
 # HTTP ERROR CODE
 
