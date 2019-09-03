@@ -5,14 +5,14 @@
 
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.bitexpress.openapi</groupId>
-	<artifactId>be-openapi</artifactId>
-	<version>0.3-SNAPSHOT</version>
+	<artifactId>be-openapi-sdk</artifactId>
+	<version>1.1.1-SNAPSHOT</version>
 
-	<name>bitexpress openapi</name>
-	<description>bitexpress openapi</description>
+	<name>bitexpress openapi sdk</name>
+	<description>bitexpress openapi sdk</description>
 	<scm>
-		<connection>scm:git:git@gitlab.wexfin.com:bitphare/open-system/be-openapi.git</connection>
-		<developerConnection>scm:git:git@gitlab.wexfin.com:bitphare/open-system/be-openapi.git</developerConnection>
+		<connection>scm:git:git@gitlab.wexfin.com:bitphare/open-system/be-openapi-sdk.git</connection>
+		<developerConnection>scm:git:git@gitlab.wexfin.com:bitphare/open-system/be-openapi-sdk.git</developerConnection>
 	</scm>
 	<distributionManagement>
 		<repository>
@@ -94,7 +94,7 @@
 			<dependency>
 				<groupId>com.godmonth</groupId>
 				<artifactId>deps</artifactId>
-				<version>3.4</version>
+				<version>3.3</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
@@ -105,20 +105,68 @@
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
+			<dependency>
+				<groupId>org.springframework</groupId>
+				<artifactId>spring-framework-bom</artifactId>
+				<version>5.1.6.RELEASE</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 	<dependencies>
+		<dependency>
+			<groupId>io.bitexpress.openapi</groupId>
+			<artifactId>be-openapi</artifactId>
+			<version>0.3.1-SNAPSHOT</version>
+		</dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>javax.validation</groupId>
-			<artifactId>validation-api</artifactId>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>com.fasterxml.jackson.core</groupId>
-			<artifactId>jackson-annotations</artifactId>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-web</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>io.bitexpress.utility</groupId>
+			<artifactId>sign-tool</artifactId>
+			<version>0.2-SNAPSHOT</version>
+		</dependency>
+		<!--http组件默认使用apache httpclient4 -->
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpclient</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.testng</groupId>
+			<artifactId>testng</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-classic</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-core</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>jcl-over-slf4j</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-context</artifactId>
+			<scope>test</scope>
+		</dependency>
+
 	</dependencies>
 </project>
