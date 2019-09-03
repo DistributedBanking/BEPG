@@ -6,7 +6,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.bitexpress.openapi</groupId>
 	<artifactId>be-openapi</artifactId>
-	<version>0.3-SNAPSHOT</version>
+	<version>0.3.1-SNAPSHOT</version>
 
 	<name>bitexpress openapi</name>
 	<description>bitexpress openapi</description>
